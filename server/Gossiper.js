@@ -12,13 +12,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-var Gossiper = require('gossiper').Gossiper;
 var BSearch = require("binary-search");
 var NMCClient = require('./NMCClient');
 var Base32 = require('../common/Base32');
 var Crypto = require('../common/Crypto');
 var Message = require('../common/Message');
 var Serial = require('../common/Serial');
+var Messenger = require('../common/Messenger');
 var Store = require('./Store');
 
 var SLEEP_TIME = 60;
@@ -28,10 +28,12 @@ var signable = function (entry)
     var buff = new Buffer(512);
     var msg = Message.wrap(buff);
     Message.reset(msg);
-    var value = JSON.parse(entry.valueStr);
-    delete value.auth;
-    value = JSON.stringify(value);
-    Serial.writeStrList(msg, [entry.name, entry.nextName, value]);
+
+    Serial.writeStrList(msg, [
+        entry.cannonical.name,
+        entry.cannonical.nextName,
+        entry.cannonical.value
+    ]);
     return Message.pop(msg, Message.size(msg));
 };
 
@@ -40,8 +42,8 @@ var cannonicalize = function (name)
     return name.substring(0, name.lastIndexOf('/') + 1);
 };
 
-// -1 if B comes before A
-// 1 if A comes before B
+// 1 if B comes before A
+// -1 if A comes before B
 var compare = function(entryA,entryB)
 {
     var a = entryA.name;
@@ -53,24 +55,27 @@ var compare = function(entryA,entryB)
     // First we sort by length and bytes prior to the final slash.
     var aLength = a.lastIndexOf('/');
     var bLength = b.lastIndexOf('/')
-    if (aLength !== bLength) { return (aLength > bLength) ? -1 : 1; }
+    if (aLength !== bLength) { return (aLength > bLength) ? 1 : -1; }
     for (var i = 0; i < aLength; i++) {
         if (a.charCodeAt(i) !== b.charCodeAt(i)) {
-            return a.charCodeAt(i) > b.charCodeAt(i) ? -1 : 1;
+            return a.charCodeAt(i) > b.charCodeAt(i) ? 1 : -1;
         }
     }
 
     // Authorities should not be signing off on multiple domains which alias eachother but if
     // one does, it should not allow him to cease a working domain so oldest one wins.
     if (entryA.first_seen !== entryB.first_seen) {
-        return (entryA.first_seen > entryB.first_seen) ? -1 : 1;
+        // prevent this rule from screwing up bsearch
+        if (entryA.first_seen !== Infinity || entryB.first_seen !== Infinity) {
+            return (entryA.first_seen > entryB.first_seen) ? 1 : -1;
+        }
     }
 
     // ok so they were both created in the same block <_< check their length and compare bytes.
-    if (a.length !== b.length) { return (a.length > b.length) ? -1 : 1; }
+    if (a.length !== b.length) { return (a.length > b.length) ? 1 : -1; }
     for (var i = aLength; i < a.length; i++) {
         if (a.charCodeAt(i) !== b.charCodeAt(i)) {
-            return a.charCodeAt(i) > b.charCodeAt(i) ? -1 : 1;
+            return a.charCodeAt(i) > b.charCodeAt(i) ? 1 : -1;
         }
     }
 
@@ -87,55 +92,62 @@ var verifyList = function (nameList, entries)
 {
     for (var i = 0; i < nameList.length; i++) {
         var last = (i === 0) ? nameList[nameList.length-1] : nameList[i-1];
-        if (nameList[i].name === last.nextName
-            && nameList[i].name === entries[i].name
-            && nameList[i].valueStr === entries[i].valueStr)
-        {
-            if (i == 0 || compare(nameList[i-1], nameList[i]) === 1) {
-                continue;
-            }
+        var error;
+        if (nameList[i].name !== last.nextName) {
+            error = "name != last.nextName";
+        } else if (nameList[i].name !== entries[i].name) {
+            error = "nameList[i].name !== entries[i].name";
+        } else if (nameList[i].valueStr !== entries[i].valueStr) {
+            error = "nameList[i].valueStr !== entries[i].valueStr";
+        } else if (i != 0 && compare(nameList[i-1], nameList[i]) !== -1) {
+            error = "compare(nameList[i-1], nameList[i]) !== -1";
+        } else {
+            continue;
         }
-        for (var i = 0; i < entries.length; i++) {
-            delete entries[i].auth;
-            console.log(i + '  ' + JSON.stringify(entries[i]));
+        for (var j = 0; j < entries.length; j++) {
+            delete entries[j].auth;
+            delete entries[j].sigs;
+            delete entries[j].binEntry;
+            console.log(j + '  ' + JSON.stringify(entries[j]));
         }
-        for (var i = 0; i < nameList.length; i++) {
-            delete nameList[i].auth;
-            console.log(i + '  ' + JSON.stringify(nameList[i]));
+        for (var j = 0; j < nameList.length; j++) {
+            delete nameList[j].auth;
+            delete nameList[j].sigs;
+            delete nameList[j].binEntry;
+            console.log(j + '  ' + JSON.stringify(nameList[j]));
         }
-        throw new Error();
+        throw new Error("Problem with name number [" + i + "] [" + error + "]");
     }
 };
 
 var makeNameEntry = function(namecoinName, nextName)
 {
-    return {
+    var out = {
         name: namecoinName.name,
         value: namecoinName.value,
         valueStr: namecoinName.valueStr,
         nextName: nextName,
         first_seen: namecoinName.first_seen,
-        sigs: {}
+        sigs: {},
+        cannonical: {
+            name: namecoinName.name.replace(/\/[^\/]*$/, ''),
+            nextName: nextName.replace(/\/[^\/]*$/, ''),
+        }
     };
-};
-
-var throws = function(f) {
-    try { f(); } catch (e) { return true; } return false;
+    out.cannonical.value = JSON.parse(namecoinName.valueStr);
+    delete out.cannonical.value.auth;
+    out.cannonical.value = JSON.stringify(out.cannonical.value);
+    return out;
 };
 
 module.exports.create = function(keyPair,
                                  ident,
                                  sig,
-                                 peerAddress,
-                                 peerPort,
-                                 peers,
                                  dbFileName,
+                                 peers,
                                  zone,
                                  authority)
 {
-    var node = new Gossiper(peerPort, peers, peerAddress);
-    node.start();
-
     var nodeID = ident.toString('base64');
     var hotID = new Buffer(keyPair.signPk).toString('base64');
 
@@ -156,19 +168,15 @@ module.exports.create = function(keyPair,
 
     var lookup = function(name)
     {
-        var idx = BSearch(nameList, { name:name }, compare);
+        var idx = BSearch(nameList, { name:name, first_seen:Infinity }, compare);
         console.log("lookup [" + name + "] returned " + idx);
-        if (idx < 0) { idx = (-idx) - 1; }
-        if (idx >= nameList.length) { idx = nameList.length - 1; }
+        if (idx < 0) { idx = (-idx) - 2; }
+        if (idx < 0) { idx = nameList.length - 1; }
 
         // In case the authority signs off two equivilant domains, return the oldest one.
         while (idx > 0 && cannonicalize(nameList[idx-1].name) == cannonicalize(nameList[idx].name))
         {
             idx--;
-        }
-
-        if (typeof(nameList[idx].binEntry) !== 'object') {
-            nameList[idx].binEntry = signable(nameList[idx]);
         }
 
         console.log("lookup result [" + nameList[idx].name + "] - [" + nameList[idx].nextName + "]");
@@ -178,7 +186,6 @@ module.exports.create = function(keyPair,
     var signName = function (entry, firstRun)
     {
         if (entry.sigs[hotID]) {
-            if (firstRun) { node.setLocalState(entry.name, entry); }
             return;
         }
         console.log("Signing [" + entry.name + "] - [" + entry.nextName + "]");
@@ -188,12 +195,63 @@ module.exports.create = function(keyPair,
         }
         entry.binEntry = signable(entry);
         entry.sigs[hotID] = Crypto.sign(entry.binEntry, keyPair);
-        if (firstRun) { node.setLocalState(entry.name, entry); }
     };
 
     var nameList = [];
 
+
+    var permKeys = [];
+    for (var i = 0; i < peers.keys.length; i++) {
+        permKeys[i] = Base32.decode(peers.keys[i].replace(/\..*$/, ''));
+    }
+    var servers = peers.servers;
+    var checkHotKeys = function () {
+        console.log('checking hot keys with [' + server + ']');
+        setTimeout(checkHotKeys, Math.floor(Math.random()*20000));
+        var server = servers[Math.floor(Math.random() * servers.length)];
+        Messenger.lookupHotKeys(permKeys, server, function(err, keyMap) {
+            for (var ident in keyMap) {
+                if (typeof(hotKeys[ident]) === 'undefined') {
+                    hotKeys[ident] = keyMap[ident];
+                } else if (new Buffer(keyMap[ident]).toString('base64') !== new Buffer(hotKeys[ident]).toString('base64')) {
+                    for (var i = 0; i < nameList.length; i++) {
+                        if (typeof(nameList[i].sigs[ident]) !== 'undefined') { delete nameList[i].sigs[ident]; }
+                    }
+                    hotKeys[ident] = keyMap[ident];
+                }
+            }
+        });
+    };
+
+
+    var checkName = function () {
+        var server = servers[Math.floor(Math.random() * servers.length)];
+        var name = nameList[Math.floor(Math.random() * nameList.length)];
+        console.log("checking [" + name.cannonical.name + '] with [' + server + ']');
+        setTimeout(checkName, Math.random()*10000);
+        Messenger.lookup(name.cannonical.name, hotKeys, server, function(err, data) {
+            if (err) {
+                console.log(err);
+            } else if (JSON.stringify(data.entry) !== JSON.stringify(name.cannonical)) {
+                console.log(JSON.stringify(data.entry) + ' !== ' + JSON.stringify(name.cannonical));
+            } else {
+                for (ident in data.sigs) {
+                    if (typeof(name.sigs[ident]) === undefined) {
+                        name.sigs[ident] = data.sigs[ident];
+                    }
+                }
+            }
+        });
+    };
+
+
+
     var syncNames = function(firstRun) {
+      if (firstRun) {
+        for (var i =  0; i < nameList.length; i++) {
+            nameList[i].binEntry = signable(nameList[i]);
+        }
+      }
       NMCClient.nameFilter('^' + zone + '/', function(error, names) {
         if (error) {
             console.log("got error scanning for names [" + error + "], trying again in ["
@@ -222,12 +280,12 @@ module.exports.create = function(keyPair,
                 } else if (names[i].name.length > 64) {
 
                 } else if (i > 0
-                    && cannonicalize(names[i-1].name) === cannonicalize(names[i])
+                    && cannonicalize(names[i-1].name) === cannonicalize(names[i].name)
                     && names[i-1].first_seen <= names[i].first_seen)
                 {
 
                 } else if (i < names.length-1
-                    && cannonicalize(names[i+1].name) === cannonicalize(names[i])
+                    && cannonicalize(names[i+1].name) === cannonicalize(names[i].name)
                     && names[i+1].first_seen < names[i].first_seen)
                 {
 
@@ -263,12 +321,20 @@ module.exports.create = function(keyPair,
               verifyList(nameList, names);
               clearInterval(interval);
 
+              checkName();
+              checkHotKeys();
+
               console.log("Scanning names complete");
 
-              Store.store(dbFileName, nameList, function() {
+              if (typeof(dbFileName) !== 'undefined') {
+                  Store.store(dbFileName, nameList, function() {
+                      console.log("sleep for [" + SLEEP_TIME + "] seconds")
+                      setTimeout(syncNames, SLEEP_TIME * 1000);
+                  });
+              } else {
                   console.log("sleep for [" + SLEEP_TIME + "] seconds")
                   setTimeout(syncNames, SLEEP_TIME * 1000);
-              });
+              }
               return;
           }
 
@@ -279,7 +345,7 @@ module.exports.create = function(keyPair,
           // this means the entry has been removed.
           while (typeof(current) !== 'undefined'
               && current.name !== entry.name
-              && compare(current, entry) === 1)
+              && compare(current, entry) === -1)
           {
               console.log("Remove [" + current.name + '] - [' + current.nextName + "] from [" + currentIndex + ']');
               nameList.splice(currentIndex, 1);
@@ -316,7 +382,7 @@ module.exports.create = function(keyPair,
           }
 
           // the new entry comes first, do an insert
-          if (compare(entry, current) === 1) {
+          if (compare(entry, current) === -1) {
               console.log("Insert [" + entry.name + '] - [' + nextName + "] in [" + currentIndex + ']');
               nameList.splice(currentIndex, 0, makeNameEntry(entry, nextName));
               current = nameList[currentIndex];
@@ -331,14 +397,19 @@ module.exports.create = function(keyPair,
       });
     };
 
-    Store.load(dbFileName, function(err, nl) {
-        if (err) {
-            console.log("failed to load database [" + err.stack + "]");
-        } else {
-            nameList = nl;
-        }
+    if (typeof(dbFileName) !== 'undefined') {
+        Store.load(dbFileName, function(err, nl) {
+            if (err) {
+                console.log("failed to load database [" + err.stack + "]");
+            } else {
+                nameList = nl;
+            }
+
+            syncNames(true);
+        });
+    } else {
         syncNames(true);
-    });
+    }
 
     return {
         hotKey: hotKey,

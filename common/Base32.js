@@ -25,14 +25,13 @@ var numForAscii = [
 
 decode = function(input)
 {
-throw new Error("base32 is not currently working");
-    var output = new Uint8Array(input.length);
+    var output = new Buffer(input.length);
     var outIndex = 0;
     var nextByte = 0;
     var bits = 0;
 
     for (var inputIndex = 0; inputIndex < input.length; inputIndex++) {
-        var o = input[inputIndex];
+        var o = input.charCodeAt(inputIndex);
         if (o & 0x80) { throw new Error(); }
         var b = numForAscii[o];
         if (b > 31) { throw new Error("bad character " + input[inputIndex]); }
@@ -51,14 +50,13 @@ throw new Error("base32 is not currently working");
         throw new Error("bits is " + bits + " and nextByte is " + nextByte);
     }
 
-    return output.subarray(0, outIndex);
+    return output.slice(0, outIndex);
 };
 
 var kChars = "0123456789bcdfghjklmnpqrstuvwxyz";
 
 encode = function (input)
 {
-throw new Error("base32 is not corrently working");
     var output = '';
     var inIndex = 0;
     var work = 0;

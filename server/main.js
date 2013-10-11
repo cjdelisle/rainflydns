@@ -12,15 +12,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-var Crypto = require('./common/Crypto');
-var Base32 = require('./common/Base32');
-var Gossiper = require('./server/Gossiper');
-var Authority = require('./server/Authority');
-var RequestHandler = require('./server/RequestHandler');
+var Crypto = require('../common/Crypto');
+var Base32 = require('../common/Base32');
+var Gossiper = require('./Gossiper');
+var Authority = require('./Authority');
+var RequestHandler = require('./RequestHandler');
 
 var coldConf = function(name)
 {
-  if (!(/[a-z0-9-]+/.test(name))) {
+  name = name.replace(/.h$/,'');
+  if (!(/^[a-z0-9-]+$/.test(name))) {
       throw new Error("invalid characters in " + name);
   }
   var keyPair = Crypto.keyPair();
@@ -51,17 +52,22 @@ var hotConf = function()
       __COMMENT: "This is the hot configuration file which is installed on the server.",
       privateKey: new Buffer(keyPair.signSk).toString('base64'),
       publicKey: new Buffer(keyPair.signPk).toString('base64'),
-      ident: new Buffer(coldKeys.signPk).toString('base64'),
-      signature: new Buffer(sig).toString('base64'),
+      identity: json.identity,
+      auth: new Buffer(sig).toString('base64'),
       name: json.name,
-      peerAddress: "::",
-      peerPort: 9000,
-      rpcAddress: "::",
-      rpcPort: 9001,
-      dbFile: 'names.db',
+      address: "::",
+      port: 9001,
+//      dbFile: 'names.db',
       zone: 'h',
       authority: 'nic.h',
-      peers: [],
+      peers: {
+          keys: [
+              "7kuc3jcyql3cm8lx5zdj8vc0tkz8679kyx83utbm1ub5bxpf4mf1.mittens.h"
+          ],
+          servers: [
+              [ "::1",9002 ]
+          ],
+      },
     };
     console.log(JSON.stringify(out, null, '  '));
   });
@@ -81,27 +87,41 @@ var start = function()
         signSk: new Buffer(json.privateKey, 'base64'),
         signPk: new Buffer(json.publicKey, 'base64'),
     };
-    var sig = new Buffer(json.signature, 'base64');
-    var ident = new Buffer(json.ident, 'base64');
+    var sig = new Buffer(json.auth, 'base64');
+    var ident = Base32.decode(json.identity.replace(/\..*$/, ''));
 
-console.log("node identity: " + ident.toString('hex'));
+    console.log("Node Identity: " + json.identity);
 
     Authority.init(json.authority, function(authority) {
         var gossiper = Gossiper.create(hotKeys,
                                        ident,
                                        sig,
-                                       json.peerAddress,
-                                       json.peerPort,
-                                       json.peers,
                                        json.dbFile,
+                                       json.peers,
                                        json.zone,
                                        authority);
-        RequestHandler.init(json.rpcAddress, json.rpcPort, gossiper);
+
+        RequestHandler.init(json.address, json.port, gossiper);
     });
   });
 };
 
-var main = function()
+var usage = function()
+{
+    console.log("rainserv --coldconf <servername>    Create a COLD configuration for this server");
+    console.log("                                    this configuration must be guarded closely");
+    console.log("                                    and if it is lost or stolen, there is no");
+    console.log("                                    recource, it should not be on a server.");
+    console.log();
+    console.log("rainserv --hotconf < cold.conf      Create a HOT configuration for this server");
+    console.log("                                    this configuration can be replaced if it is");
+    console.log("                                    lost or compromized and it must be on the");
+    console.log("                                    live server.");
+    console.log();
+    console.log("rainserv --start < hot.conf         Start up the server and begin serving names");
+};
+
+var main = module.exports.main = function()
 {
   for (var i = 0; i < process.argv.length; i++) {
 
@@ -120,4 +140,3 @@ var main = function()
 
   usage();
 }
-main();

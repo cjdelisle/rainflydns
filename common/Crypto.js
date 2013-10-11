@@ -34,6 +34,10 @@ var isValid = function(message, sig, pubKey)
     //    + new Buffer(pubKey).toString("base64") + "]");
 
     if (typeof(message) === 'string') { message = Nacl.encode_utf8(message); }
+    if (!Buffer.isBuffer(message)) { message = new Buffer(message); }
+    if (!Buffer.isBuffer(sig)) { sig = new Buffer(sig); }
+    if (!Buffer.isBuffer(pubKey)) { pubKey = new Buffer(pubKey); }
+     
     var longMsg = Buffer.concat([new Buffer(sig), new Buffer(message)]);
     var openMsg = Nacl.crypto_sign_open(longMsg, pubKey);
     return openMsg !== null;

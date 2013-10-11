@@ -47,7 +47,7 @@ var hotKeys = function(msg, gossiper, callback)
     console.log('hotkeys');
     var keys = [];
     var idents = parseList(msg, Crypto.PUBLIC_KEY_SIZE);
-
+    idents = idents.reverse();
     var manifest = 0;
     idents.forEach(function(ident) {
         manifest <<= 1;
@@ -332,8 +332,7 @@ of that signature.
 var init = function(address, port, gossiper)
 {
   var sock = UDP.createSocket((address.indexOf(':') > -1) ? 'udp6' : 'udp4');
-  sock.on("message", function (buff, rinfo) {
-    //console.log("server got: " + buff + " from " + rinfo.address + ":" + rinfo.port);
+  var handleMessage = function (buff, rinfo) {
 
     var msg = Message.wrap(buff);
     var typeAndCookie = Message.pop32(msg);
@@ -351,9 +350,17 @@ var init = function(address, port, gossiper)
       case RequestTypes.LOOKUP: return lookup(msg, gossiper, callback);
       default:
     }
+  };
+
+  sock.on("message", function (buff, rinfo) {
+      try {
+          handleMessage(buff, rinfo);
+      } catch (e) {
+          console.log("bad request from [" + rinfo.address + "] [" + e.stack + "] "
+              + " original message [" + new Buffer(buff).toString('hex') + "]");
+      }
   });
   sock.bind(port, address);
 };
-
 
 module.exports.init = init;

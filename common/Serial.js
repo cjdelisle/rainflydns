@@ -39,7 +39,6 @@ var readStrList = module.exports.readStrList = function(msg)
     var count = Message.pop8(msg);
     var out = new Array(count);
     var totalLen = 1;
-console.log(count);
     for (var i = 0; i < count; i++) {
         var len = Message.pop8(msg);
         out[i] = new Buffer(Message.pop(msg, len)).toString('utf8');

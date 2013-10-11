@@ -12,7 +12,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-var Crypto = require('./common/Crypto');
+var Crypto = require('../common/Crypto');
 
 var newAuthority = function ()
 {
@@ -55,7 +55,7 @@ var usage = function(app)
     console.log("                        you cannot use form xyz.h");
 };
 
-var main = function()
+var main = module.exports.main = function()
 {
   for (var i = 0; i < process.argv.length; i++) {
 
@@ -70,5 +70,4 @@ var main = function()
   }
 
   usage();
-}
-main();
+};
