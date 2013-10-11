@@ -168,18 +168,13 @@ module.exports.create = function(keyPair,
 
     var lookup = function(name)
     {
+        name = name + '/';
         var idx = BSearch(nameList, { name:name, first_seen:Infinity }, compare);
-        console.log("lookup [" + name + "] returned " + idx);
+        //console.log("lookup [" + name + "] returned " + idx);
         if (idx < 0) { idx = (-idx) - 2; }
         if (idx < 0) { idx = nameList.length - 1; }
 
-        // In case the authority signs off two equivilant domains, return the oldest one.
-        while (idx > 0 && cannonicalize(nameList[idx-1].name) == cannonicalize(nameList[idx].name))
-        {
-            idx--;
-        }
-
-        console.log("lookup result [" + nameList[idx].name + "] - [" + nameList[idx].nextName + "]");
+        //console.log("lookup result [" + nameList[idx].name + "] - [" + nameList[idx].nextName + "]");
         return nameList[idx];
     };
 
@@ -204,15 +199,19 @@ module.exports.create = function(keyPair,
     for (var i = 0; i < peers.keys.length; i++) {
         permKeys[i] = Base32.decode(peers.keys[i].replace(/\..*$/, ''));
     }
+    var messenger = Messenger.init();
     var servers = peers.servers;
     var checkHotKeys = function () {
-        console.log('checking hot keys with [' + server + ']');
-        setTimeout(checkHotKeys, Math.floor(Math.random()*20000));
+        setTimeout(checkHotKeys, Math.floor(Math.random()*120000));
         var server = servers[Math.floor(Math.random() * servers.length)];
-        Messenger.lookupHotKeys(permKeys, server, function(err, keyMap) {
+        console.log('checking hot keys with [' + server + ']');
+        messenger.lookupHotKeys(permKeys, server, function(err, keyMap) {
+            if (err) { console.log('checking hot keys with [' + server + '] caused [' + err + ']'); return; }
             for (var ident in keyMap) {
                 if (typeof(hotKeys[ident]) === 'undefined') {
                     hotKeys[ident] = keyMap[ident];
+                } else if (ident === nodeID) {
+                    console.log("got different key for ourselves, discarding");
                 } else if (new Buffer(keyMap[ident]).toString('base64') !== new Buffer(hotKeys[ident]).toString('base64')) {
                     for (var i = 0; i < nameList.length; i++) {
                         if (typeof(nameList[i].sigs[ident]) !== 'undefined') { delete nameList[i].sigs[ident]; }
@@ -225,26 +224,40 @@ module.exports.create = function(keyPair,
 
 
     var checkName = function () {
-        var server = servers[Math.floor(Math.random() * servers.length)];
-        var name = nameList[Math.floor(Math.random() * nameList.length)];
-        console.log("checking [" + name.cannonical.name + '] with [' + server + ']');
         setTimeout(checkName, Math.random()*10000);
-        Messenger.lookup(name.cannonical.name, hotKeys, server, function(err, data) {
+        var server = servers[Math.floor(Math.random() * servers.length)];
+
+        var begin = Math.floor(Math.random() * nameList.length);
+        var name;
+        var i = begin;
+        do {
+            if (Object.keys(nameList[i].sigs).length < Object.keys(hotKeys).length) {
+                name = nameList[i];
+                break;
+            }
+            i = (i + 1) % nameList.length;
+        } while (i !== begin);
+        if (typeof(name) === 'undefined') { return; }
+
+        console.log("checking [" + name.cannonical.name + '] with [' + server + ']');
+        messenger.lookup(name.cannonical.name, hotKeys, server, function(err, data) {
             if (err) {
-                console.log(err);
-            } else if (JSON.stringify(data.entry) !== JSON.stringify(name.cannonical)) {
-                console.log(JSON.stringify(data.entry) + ' !== ' + JSON.stringify(name.cannonical));
+                console.log("checking [" + name.cannonical.name + '] with [' + server + '] error[' + err + "]");
             } else {
-                for (ident in data.sigs) {
-                    if (typeof(name.sigs[ident]) === undefined) {
-                        name.sigs[ident] = data.sigs[ident];
+                var entry = [name.cannonical.name, name.cannonical.nextName, name.cannonical.value];
+                if (JSON.stringify(data.entry) !== JSON.stringify(entry)) {
+                    console.log(JSON.stringify(data.entry) + ' !== ' + JSON.stringify(entry));
+                } else {
+                    for (ident in data.validSigsByIdent) {
+                        var hotKeyStr = hotKeys[ident].slice(Crypto.SIG_SIZE).toString('base64');
+                        if (typeof(name.sigs[hotKeyStr]) === 'undefined') {
+                            name.sigs[hotKeyStr] = data.validSigsByIdent[ident];
+                        }
                     }
                 }
             }
         });
     };
-
-
 
     var syncNames = function(firstRun) {
       if (firstRun) {
@@ -321,8 +334,10 @@ module.exports.create = function(keyPair,
               verifyList(nameList, names);
               clearInterval(interval);
 
-              checkName();
-              checkHotKeys();
+              if (firstRun) {
+                  checkName();
+                  checkHotKeys();
+              }
 
               console.log("Scanning names complete");
 

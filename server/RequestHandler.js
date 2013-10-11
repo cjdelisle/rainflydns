@@ -71,16 +71,21 @@ var lookup = function(msg, gossiper, callback)
     var name = Serial.readStrList(msg);
     if (name.length !== 1) { throw new Error(); }
     name = name[0];
-    var hotKeys = parseList(msg, Crypto.PUBLIC_KEY_SIZE);
-    if (Message.size(msg) !== 0) { throw new Error(); }
+    var hotKeys = [];
+    while (Message.size(msg) > 0) {
+        hotKeys.push(Message.pop(msg, Crypto.PUBLIC_KEY_SIZE));
+    }
 
     var entry = gossiper.lookup(name);
 
-    for (var i = 0; i < hotKeys.length; i++) {
-        var hotKeyStr = new Buffer(hotKeys[i]).toString('base64');
+    var hotKey;
+    while ((hotKey = hotKeys.pop())) {
+        var hotKeyStr = new Buffer(hotKey).toString('base64');
         if (hotKeyStr in entry.sigs) {
+            console.log("pushing key");
             Message.push(msg, entry.sigs[hotKeyStr]);
         } else {
+            console.log("unknown key, pushing zero");
             Message.push(msg, new Buffer(64));
         }
     }

@@ -18,33 +18,41 @@ var Messenger = require('../common/Messenger');
 
 var HOME = process.env.HOME || process.env.HOMEPATH || process.env.USERPROFILE;
 
-var dotBitLookup = function (name, keys, minSigs, target)
+var dotBitLookup = function (name, hotKeys, minSigs, target, messenger)
 {
-    var hotKeys = {};
-    for (var i = 0; i < keys.length; i++) {
-        hotKeys[""+i] = keys[i];
-    }
-    Messenger.lookup(name, hotKeys, target, function (err, entry) {
+    messenger.lookup(name, hotKeys, target, function (err, entry) {
         if (err) { throw err; }
-        if (Object.keys(entry.sigs).length < minSigs) {
+console.log("valid signatures [" + Object.keys(entry.validSigsByIdent).length + "]");
+        for (var key in entry.validSigsByIdent) {
+console.log("valid signature from [" + key + "]");
+        }
+        if (Object.keys(entry.validSigsByIdent).length < minSigs) {
             throw new Error("not enough signatures: need [" + minSigs
-                + "] have [" + validSigs + "] total sigs: ["
-                + sigs.length + "]");
+                + "] have [" + Object.keys(entry.validSigsByIdent).length + "]");
         }
         console.log(JSON.stringify(entry.entry));
+        messenger.shutdown();
     });
 };
 
-var doKeysLookup = function(keys, target, minSigs, callback)
+var doKeysLookup = function(keys, target, minSigs, messenger, callback)
 {
-    Messenger.lookupHotKeys(keys, target, function (err, hotKeys) {
+    var keyArray = [];
+    for (name in keys) { keyArray.push(keys[name]); }
+    messenger.lookupHotKeys(keyArray, target, function (err, hotKeys) {
         if (err) { callback(err); return; }
         if (Object.keys(hotKeys).length < minSigs) {
             callback(new Error("not enough keys to satisfy minSignatures")); return;
         }
-        var keys = [];
-        for (coldKey in hotKeys) { keys.push(hotKeys[coldKey].slice(64)); }
-        callback(undefined, keys);
+        var outKeys = {};
+        for (name in keys) {
+            var keyStr = new Buffer(keys[name]).toString('base64');
+            if (typeof(hotKeys[keyStr]) !== 'undefined') {
+console.log("have key [" + name + "]");
+                outKeys[name] = hotKeys[keyStr];
+            }
+        }
+        callback(undefined, outKeys);
     });
 };
 
@@ -52,24 +60,25 @@ var doLookup = function(name)
 {
     Fs.readFile(HOME + "/.rdig/conf.json", function(err, json) {
         if (err) { throw err; }
+        var messenger = Messenger.init();
         json = JSON.parse(json);
-        var keys = [];
+        var keys = {};
         for (var i = 0; i < json.keys.length; i++) {
-            keys[i] = Base32.decode(json.keys[i].replace(/\..*$/, ''));
+            keys[json.keys[i]] = Base32.decode(json.keys[i].replace(/\..*$/, ''));
         }
-        var targetIndex = Math.floor(Math.random() * 10000) % json.servers.length;
+        var targetIndex = Math.floor(Math.random() * json.servers.length);
         var tryServer = function(index) {
             if (index % json.servers.length === targetIndex && index !== targetIndex) {
                 throw new Error("Ran out of servers to try.");
             }
             var target = json.servers[index % json.servers.length];
-            doKeysLookup(keys, target, json.minSignatures, function(err, keys) {
+            doKeysLookup(keys, target, json.minSignatures, messenger, function(err, hotKeys) {
                 if (err) {
                     console.log("Error contacting [" + JSON.stringify(target) + "] ["
                         + err.stack + "]");
                     tryServer(index+1); return;
                 }
-                dotBitLookup('h/' + name.replace(/.h$/, '') + '/', keys, json.minSignatures, target);
+                dotBitLookup('h/' + name.replace(/.h$/, ''), hotKeys, json.minSignatures, target, messenger);
             });
         };
         tryServer(targetIndex);
