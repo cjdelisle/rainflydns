@@ -58,7 +58,7 @@ console.log("have key [" + name + "]");
 
 var doLookup = function(name)
 {
-    Fs.readFile(HOME + "/.rdig/conf.json", function(err, json) {
+    Fs.readFile(HOME + "/.rainfly/conf.json", function(err, json) {
         if (err) { throw err; }
         var messenger = Messenger.init();
         json = JSON.parse(json);
@@ -96,6 +96,9 @@ var genconf = function()
         servers: [
             [ "127.0.0.1", 9001 ]
         ],
+        rproxy: {
+            bind: [ "::1", 5353 ]
+        },
         minSignatures: 2
     }, null, '  '));
 };
@@ -106,7 +109,7 @@ var usage = function()
     console.log("rdig --genconf        make a new config file with defaults for nic.h");
     console.log();
     console.log("example:");
-    console.log("mkdir ~/.rdig && rdig --genconf > ~/.rdig/conf.json");
+    console.log("mkdir ~/.rainfly && rdig --genconf > ~/.rainfly/conf.json");
     console.log("rdig nic.h");
 };
 

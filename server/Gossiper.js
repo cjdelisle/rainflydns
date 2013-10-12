@@ -62,16 +62,6 @@ var compare = function(entryA,entryB)
         }
     }
 
-    // Authorities should not be signing off on multiple domains which alias eachother but if
-    // one does, it should not allow him to cease a working domain so oldest one wins.
-    if (entryA.first_seen !== entryB.first_seen) {
-        // prevent this rule from screwing up bsearch
-        if (entryA.first_seen !== Infinity || entryB.first_seen !== Infinity) {
-            return (entryA.first_seen > entryB.first_seen) ? 1 : -1;
-        }
-    }
-
-    // ok so they were both created in the same block <_< check their length and compare bytes.
     if (a.length !== b.length) { return (a.length > b.length) ? 1 : -1; }
     for (var i = aLength; i < a.length; i++) {
         if (a.charCodeAt(i) !== b.charCodeAt(i)) {
