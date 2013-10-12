@@ -17,5 +17,8 @@
     "p2p"
   ],
   "author": "Caleb James DeLisle",
-  "license": "GPL3"
+  "license": "GPL3",
+  "dependencies": {
+    "js-nacl": "~0.1.0"
+  }
 }
