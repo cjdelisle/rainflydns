@@ -1,0 +1,21 @@
+{
+  "name": "rainflydns",
+  "version": "0.0.0",
+  "description": "*how to blow a 9 month lead*",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://gitboria.com/cjd/rainflydns.git"
+  },
+  "keywords": [
+    "dns",
+    "hyperboria",
+    "cjdns",
+    "p2p"
+  ],
+  "author": "Caleb James DeLisle",
+  "license": "GPL3"
+}
