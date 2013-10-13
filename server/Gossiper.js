@@ -159,7 +159,7 @@ module.exports.create = function(keyPair,
     var lookup = function(name)
     {
         name = name + '/';
-        var idx = BSearch(nameList, { name:name, first_seen:Infinity }, compare);
+        var idx = BSearch(nameList, { name:name }, compare);
         //console.log("lookup [" + name + "] returned " + idx);
         if (idx < 0) { idx = (-idx) - 2; }
         if (idx < 0) { idx = nameList.length - 1; }

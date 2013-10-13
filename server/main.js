@@ -73,9 +73,6 @@ var hotConf = function()
   });
 };
 
-// 01ffffff0100705553dac29e0a18f6fef243c9a15817a15707395281872b8d8c75807c5522
-//           00705553dac29e0a18f6fef243c9a15817a15707395281872b8d8c75807c5522
-
 var start = function()
 {
   process.stdin.resume();
