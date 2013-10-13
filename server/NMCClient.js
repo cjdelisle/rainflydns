@@ -55,7 +55,7 @@ var nameHistory = module.exports.nameHistory = function(name, callback) {
       try {
           var content = JSON.parse(dat);
       } catch (e) { callback(e.stack, undefined); }
-      if (content.error) { callback(content.error, null); }
+      if (content.error) { callback(JSON.stringify(content.error, null, '  '), null); }
       callback(undefined, content.result);
     });
 };

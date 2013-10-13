@@ -37,7 +37,7 @@ var init = module.exports.init = function(authority, callback)
     // As a matter of requirement, an authority must not have any crap after the last slash.
     // so for example nic.h must equal h/nic/ and can not contain anything after the last /
     var authorityName = authority.split('.').reverse().join('/') + '/';
-    console.log("Looking up hostory for authority [" + authorityName + "]");
+    console.log("Looking up history for name authority [" + authorityName + "]");
     nameHistory = NMCClient.nameHistory(authorityName, function(err, history) {
         if (err) { throw err; }
         var keys = {};
