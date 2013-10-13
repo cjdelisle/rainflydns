@@ -44,7 +44,7 @@ var cannonicalize = function (name)
 
 // 1 if B comes before A
 // -1 if A comes before B
-var compare = function(entryA,entryB)
+var sortCompare = function(entryA,entryB)
 {
     var a = entryA.name;
     var b = entryB.name;
@@ -73,8 +73,42 @@ var compare = function(entryA,entryB)
     return 0;
 };
 
+var compare = function(a,b)
+{
+    if (a.length !== b.length) { return (a.length > b.length) ? 1 : -1; }
+    for (var i = 0; i < a.length; i++) {
+        if (a.charCodeAt(i) !== b.charCodeAt(i)) {
+            return a.charCodeAt(i) > b.charCodeAt(i) ? 1 : -1;
+        }
+    }
+    return 0;
+};
+
 var ASSERT = function(x) {
     if (!x) { throw new Error("Assertion failure"); }
+};
+
+var doLookup = function (nameList, name)
+{
+    var entry = nameList[nameList.length-1];
+    for (var i = 0; i < nameList.length; i++) {
+        var comp = compare(nameList[i].cannonical.name, name);
+//console.log("compare(" + nameList[i].cannonical.name + ', ' + name + ') -> ' + comp);
+        switch (compare(nameList[i].cannonical.name, name)) {
+            case 1: return entry;
+            case 0: return nameList[i];
+            default: entry = nameList[i];
+        }
+    }
+/*
+    var idx = BSearch(nameList, { name:name }, compare);
+    //console.log("lookup [" + name + "] returned " + idx);
+    if (idx < 0) { idx = (-idx) - 2; }
+    if (idx < 0) { idx = nameList.length - 1; }
+
+    //console.log("lookup result [" + nameList[idx].name + "] - [" + nameList[idx].nextName + "]");
+    return nameList[idx];
+*/
 };
 
 // for testing the correctness of the algorithm
@@ -83,14 +117,17 @@ var verifyList = function (nameList, entries)
     for (var i = 0; i < nameList.length; i++) {
         var last = (i === 0) ? nameList[nameList.length-1] : nameList[i-1];
         var error;
+        var num;
         if (nameList[i].name !== last.nextName) {
             error = "name != last.nextName";
         } else if (nameList[i].name !== entries[i].name) {
             error = "nameList[i].name !== entries[i].name";
         } else if (nameList[i].valueStr !== entries[i].valueStr) {
             error = "nameList[i].valueStr !== entries[i].valueStr";
-        } else if (i != 0 && compare(nameList[i-1], nameList[i]) !== -1) {
+        } else if (i != 0 && compare(nameList[i-1].cannonical.name, nameList[i].cannonical.name) !== -1) {
             error = "compare(nameList[i-1], nameList[i]) !== -1";
+        } else if ((num = doLookup(nameList, nameList[i].cannonical.name)) !== nameList[i]) {
+            error = "lookup("+nameList[i].cannonical.name+") != " + nameList[i];
         } else {
             continue;
         }
@@ -158,14 +195,7 @@ module.exports.create = function(keyPair,
 
     var lookup = function(name)
     {
-        name = name + '/';
-        var idx = BSearch(nameList, { name:name }, compare);
-        //console.log("lookup [" + name + "] returned " + idx);
-        if (idx < 0) { idx = (-idx) - 2; }
-        if (idx < 0) { idx = nameList.length - 1; }
-
-        //console.log("lookup result [" + nameList[idx].name + "] - [" + nameList[idx].nextName + "]");
-        return nameList[idx];
+        return doLookup(nameList, name);
     };
 
     var signName = function (entry, firstRun)
@@ -265,7 +295,7 @@ module.exports.create = function(keyPair,
         console.log("Scanning names:");
 
         // Reorder the names by our own metric
-        names.sort(compare);
+        names.sort(sortCompare);
 
         for (var i = names.length - 1; i >= 0; i--) {
             // To introduce some churn for testing.
@@ -350,7 +380,7 @@ module.exports.create = function(keyPair,
           // this means the entry has been removed.
           while (typeof(current) !== 'undefined'
               && current.name !== entry.name
-              && compare(current, entry) === -1)
+              && compare(current.cannonical.name, cannonicalize(entry.name)) === -1)
           {
               console.log("Remove [" + current.name + '] - [' + current.nextName + "] from [" + currentIndex + ']');
               nameList.splice(currentIndex, 1);
@@ -387,7 +417,7 @@ module.exports.create = function(keyPair,
           }
 
           // the new entry comes first, do an insert
-          if (compare(entry, current) === -1) {
+          if (compare(cannonicalize(entry.name), current.cannonical.name) === -1) {
               console.log("Insert [" + entry.name + '] - [' + nextName + "] in [" + currentIndex + ']');
               nameList.splice(currentIndex, 0, makeNameEntry(entry, nextName));
               current = nameList[currentIndex];

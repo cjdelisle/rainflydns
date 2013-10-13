@@ -39,7 +39,10 @@ var init = module.exports.init = function(authority, callback)
     var authorityName = authority.split('.').reverse().join('/') + '/';
     console.log("Looking up history for name authority [" + authorityName + "]");
     nameHistory = NMCClient.nameHistory(authorityName, function(err, history) {
-        if (err) { throw err; }
+        if (err) {
+            console.log("This might mean your namecoin instance is not synced yet.");
+            throw err;
+        }
         var keys = {};
         for (var i = 0; i < history.length; i++) {
             try {
