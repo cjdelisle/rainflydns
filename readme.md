@@ -2,28 +2,28 @@
 
 *how to blow a 9 month lead*
 
-###Install the namecoin prerequesites:
+### Install the namecoin prerequesites:
 
     sudo aptitude install libdb5.1++-dev libboost-all-dev libglib2.0-dev
 
-###Build namecoin:
+### Build namecoin:
 
     git clone http://gitboria.com/cjd/rainflynamecoin.git
     cd rainflynamecoin/src && make -f makefile.unix
 
-###Setup, start and test namecoin:
+### Setup, start and test namecoin:
 
     mkdir ~/.namecoin && echo 'rpcpassword=password' > ~/.namecoin/bitcoin.conf
     ./namecoind -daemon
     curl --user '':password --data-binary '{"method":"name_scan","params":["","500"],"id":1}' -H 'content-type: text/plain;' http://127.0.0.1:8336/
 
-###Watch what namecon is doing:
+### Watch what namecon is doing:
 
     tail -f ~/.namecoin/debug.log
 
 You will need to wait for namecoin to sync the chain, this could take as much as a few days depending on your system.
 
-###Install node.js
+### Install node.js
 
 These are debian based install instructions (you probably don't want to use node from your package
 manager) debian stuff is always out of date and arch independently compiled node and introduced a
