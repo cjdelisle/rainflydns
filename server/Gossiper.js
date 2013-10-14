@@ -100,6 +100,7 @@ var doLookup = function (nameList, name)
             default: entry = nameList[i];
         }
     }
+    return entry;
 /*
     var idx = BSearch(nameList, { name:name }, compare);
     //console.log("lookup [" + name + "] returned " + idx);
