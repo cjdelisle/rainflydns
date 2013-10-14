@@ -89,12 +89,15 @@ var genconf = function()
 {
     console.log(JSON.stringify({
         __COMMENT: "This is a configuration for rdig",
-        keys: [
+        "keys": [
             "7kuc3jcyql3cm8lx5zdj8vc0tkz8679kyx83utbm1ub5bxpf4mf1.mittens.h",
-            "r4fm7r9315x9ytm27n8zmbj1fx9gbpmyssrwmstb4v30zk6gn560.fluffy.h"
+            "tvlxu5rbcj76rfdmsw9xd3kjn79fhv6kpvl2hzv98637j4rdj1b1.tom.h",
+            "kkxfwnm3upf0jv35jq4lx0dn0z3m9bh71gv84cdjlcp68w1qckt1.maru.h"
         ],
-        servers: [
-            [ "127.0.0.1", 9001 ]
+        "servers": [
+            ["fc71:ec46:57a0:2bbc:537d:b680:3630:93e4",9001],
+            ["fc8e:9a1c:27c3:281b:29b1:1a04:3701:c125",9001],
+            ["fcad:0450:4a40:9778:14e2:e442:6678:3161",9001]
         ],
         rproxy: {
             bind: [ "::1", 5353 ]
