@@ -61,11 +61,15 @@ var hotConf = function()
       zone: 'h',
       authority: 'nic.h',
       peers: {
-          keys: [
-              "7kuc3jcyql3cm8lx5zdj8vc0tkz8679kyx83utbm1ub5bxpf4mf1.mittens.h"
+          "keys": [
+            "7kuc3jcyql3cm8lx5zdj8vc0tkz8679kyx83utbm1ub5bxpf4mf1.mittens.h",
+            "tvlxu5rbcj76rfdmsw9xd3kjn79fhv6kpvl2hzv98637j4rdj1b1.tom.h",
+            "kkxfwnm3upf0jv35jq4lx0dn0z3m9bh71gv84cdjlcp68w1qckt1.maru.h"
           ],
-          servers: [
-              [ "::1",9002 ]
+          "servers": [
+            ["fc71:ec46:57a0:2bbc:537d:b680:3630:93e4",9001],
+            ["fc8e:9a1c:27c3:281b:29b1:1a04:3701:c125",9001],
+            ["fcad:0450:4a40:9778:14e2:e442:6678:3161",9001]
           ],
       },
     };
