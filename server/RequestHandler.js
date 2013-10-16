@@ -44,7 +44,6 @@ var ping = function(msg, callback)
 
 var hotKeys = function(msg, gossiper, callback)
 {
-    console.log('hotkeys');
     var keys = [];
     var idents = parseList(msg, Crypto.PUBLIC_KEY_SIZE);
     idents = idents.reverse();
@@ -67,19 +66,14 @@ var hotKeys = function(msg, gossiper, callback)
 
 var lookup = function(msg, gossiper, callback)
 {
-    console.log('lookup');
-console.log(Message.size(msg));
     var name = Serial.readStrList(msg, 1);
-console.log(Message.size(msg));
     if (name.length !== 1) { throw new Error(); }
     name = name[0];
     var hotKeys = [];
     while (Message.size(msg) > 0) {
         hotKeys.push(Message.pop(msg, Crypto.PUBLIC_KEY_SIZE));
     }
-//02294106
-//05682f636a640000
-//5cc26fc92f5a012deac29e09f7670308ae3a92245bd7b7afa36d0f1c0ca42cb6
+
     var entry = gossiper.lookup(name);
 
     var hotKey;

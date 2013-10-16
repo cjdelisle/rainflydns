@@ -281,17 +281,20 @@ module.exports.create = function(keyPair,
         messenger.lookup(name.cannonical.name, hotKeys, server, function(err, data) {
             if (err) {
                 console.log("checking [" + name.cannonical.name + '] with [' + server + '] error[' + err + "]");
-            } else {
-                var entry = [name.cannonical.name, name.cannonical.nextName, name.cannonical.value];
-                if (JSON.stringify(data.entry) !== JSON.stringify(entry)) {
-                    console.log(JSON.stringify(data.entry) + ' !== ' + JSON.stringify(entry));
-                } else {
-                    for (ident in data.validSigsByIdent) {
-                        var hotKeyStr = hotKeys[ident].slice(NaCl.SIG_SIZE).toString('base64');
-                        if (typeof(name.sigs[hotKeyStr]) === 'undefined') {
-                            name.sigs[hotKeyStr] = data.validSigsByIdent[ident];
-                        }
-                    }
+                return;
+            }
+            var entry = [name.cannonical.name, name.cannonical.nextName, name.cannonical.value];
+            if (JSON.stringify(data.entry) !== JSON.stringify(entry)) {
+                console.log(JSON.stringify(data.entry) + ' !== ' + JSON.stringify(entry));
+                return;
+            }
+            if (data.blockHeight !== name.height) {
+                return;
+            }
+            for (ident in data.validSigsByIdent) {
+                var hotKeyStr = hotKeys[ident].slice(NaCl.SIG_SIZE).toString('base64');
+                if (typeof(name.sigs[hotKeyStr]) === 'undefined') {
+                    name.sigs[hotKeyStr] = data.validSigsByIdent[ident];
                 }
             }
         });
