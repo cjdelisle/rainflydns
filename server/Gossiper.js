@@ -275,7 +275,7 @@ module.exports.create = function(keyPair,
             i = (i + 1) % nameList.length;
         } while (i !== begin);
         if (typeof(name) === 'undefined') {
-            if (Math.random() > 0.0016) { return; }
+            if (best > 1 && Math.random() > 0.0016) { return; }
             name = nameList[begin]
         }
 
