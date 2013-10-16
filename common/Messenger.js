@@ -30,6 +30,14 @@ var printHex = function(msg)
     return buff.toString('hex');
 };
 
+var isZero = function(buff)
+{
+    for (var i = 0; i < buff.length; i++) {
+        if (buff[i] !== 0) { return false; }
+    }
+    return true;
+};
+
 var init = module.exports.init = function ()
 {
     var out = {}
@@ -139,6 +147,8 @@ var init = module.exports.init = function ()
                 if (Crypto.isValid(sigContent, sigs[i], hotKeysArray[i])) {
                     console.log("valid signature");
                     validSigs[identitiesArray[i]] = sigs[i];
+                } else if (isZero(sigs[i])) {
+                    console.log("zero signature");
                 } else {
                     console.log("invalid signature");
                 }
