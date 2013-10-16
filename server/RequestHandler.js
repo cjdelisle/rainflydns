@@ -23,6 +23,8 @@ var RequestTypes = {
     LOOKUP: 0x02
 };
 
+var ZERO = new Buffer('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==', 'base64');
+
 var parseList = function(msg, elementSize, count)
 {
     if (!count) {
@@ -84,7 +86,7 @@ var lookup = function(msg, gossiper, callback)
             Message.push(msg, entry.sigs[hotKeyStr]);
         } else {
             console.log("unknown key, pushing zero");
-            Message.push(msg, new Buffer(64));
+            Message.push(msg, ZERO);
         }
     }
 
