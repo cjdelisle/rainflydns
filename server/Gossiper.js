@@ -242,9 +242,11 @@ module.exports.create = function(keyPair,
             for (var ident in keyMap) {
                 if (typeof(hotKeys[ident]) === 'undefined') {
                     hotKeys[ident] = keyMap[ident];
-                } else if (ident === nodeID) {
-                    console.log("got different key for ourselves, discarding");
                 } else if (new Buffer(keyMap[ident]).toString('base64') !== new Buffer(hotKeys[ident]).toString('base64')) {
+                    if (ident === nodeID) {
+                        console.log("got different key for ourselves, discarding");
+                        continue;
+                    }
                     for (var i = 0; i < nameList.length; i++) {
                         if (typeof(nameList[i].sigs[ident]) !== 'undefined') { delete nameList[i].sigs[ident]; }
                     }
