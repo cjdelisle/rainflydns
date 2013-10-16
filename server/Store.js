@@ -29,8 +29,7 @@ var serializeEntry = function (entry, msg)
 
 var deserializeEntry = function (msg)
 {
-    var entries = Serial.readStrList(msg);
-    if (entries.length !== 3) { throw new Error("wrong entry count"); }
+    var entries = Serial.readStrList(msg, 3);
     var out = {
         name: entries[0],
         nextName: entries[1],

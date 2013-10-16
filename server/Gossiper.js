@@ -12,10 +12,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+var Crypto = require('crypto');
 var BSearch = require("binary-search");
 var NMCClient = require('./NMCClient');
 var Base32 = require('../common/Base32');
-var Crypto = require('../common/Crypto');
+var NaCl = require('../common/Crypto');
 var Message = require('../common/Message');
 var Serial = require('../common/Serial');
 var Messenger = require('../common/Messenger');
@@ -34,6 +35,7 @@ var signable = function (entry)
         entry.cannonical.nextName,
         entry.cannonical.value
     ]);
+    Message.push32(msg, entry.height);
     return Message.pop(msg, Message.size(msg));
 };
 
@@ -162,6 +164,11 @@ var makeNameEntry = function(namecoinName, nextName)
             nextName: nextName.replace(/\/[^\/]*$/, ''),
         }
     };
+
+    var sha = Crypto.createHash('sha512');
+    sha.update(out.cannonical.name);
+    out.height = new Number('0x' + sha.digest('hex').substring(0,2));
+
     out.cannonical.value = JSON.parse(namecoinName.valueStr);
     delete out.cannonical.value.auth;
     out.cannonical.value = JSON.stringify(out.cannonical.value);
@@ -199,18 +206,22 @@ module.exports.create = function(keyPair,
         return doLookup(nameList, name);
     };
 
-    var signName = function (entry, firstRun)
+    var signName = function (entry, firstRun, height)
     {
+        if (entry.height < height - 2016 || (height % 256) === entry.height) {
+            entry.sigs = {};
+            entry.height = ((height >> 8) << 8) | (entry.height & 0xff);
+        }
         if (entry.sigs[hotID]) {
             return;
         }
-        console.log("Signing [" + entry.name + "] - [" + entry.nextName + "]");
+        console.log("Signing [" + entry.name + "] - [" + entry.nextName + "] [" + entry.height + "]");
         // While we're at it we can flush out the old keys.
         for (var id in entry.sigs) {
             if (typeof(hotKeys[id]) === 'undefined') { delete entry.sigs[id]; }
         }
         entry.binEntry = signable(entry);
-        entry.sigs[hotID] = Crypto.sign(entry.binEntry, keyPair);
+        entry.sigs[hotID] = NaCl.sign(entry.binEntry, keyPair);
     };
 
     var nameList = [];
@@ -245,20 +256,26 @@ module.exports.create = function(keyPair,
 
 
     var checkName = function () {
-        setTimeout(checkName, Math.random()*10000);
+        setTimeout(checkName, Math.random()*1000);
         var server = servers[Math.floor(Math.random() * servers.length)];
 
         var begin = Math.floor(Math.random() * nameList.length);
         var name;
         var i = begin;
+        var best = 0;
         do {
-            if (Object.keys(nameList[i].sigs).length < Object.keys(hotKeys).length) {
+            var len = Object.keys(nameList[i].sigs).length;
+            if (len < best) {
                 name = nameList[i];
                 break;
             }
+            best = len;
             i = (i + 1) % nameList.length;
         } while (i !== begin);
-        if (typeof(name) === 'undefined') { return; }
+        if (typeof(name) === 'undefined') {
+            if (Math.random() > 0.0016) { return; }
+            name = nameList[begin]
+        }
 
         console.log("checking [" + name.cannonical.name + '] with [' + server + ']');
         messenger.lookup(name.cannonical.name, hotKeys, server, function(err, data) {
@@ -270,7 +287,7 @@ module.exports.create = function(keyPair,
                     console.log(JSON.stringify(data.entry) + ' !== ' + JSON.stringify(entry));
                 } else {
                     for (ident in data.validSigsByIdent) {
-                        var hotKeyStr = hotKeys[ident].slice(Crypto.SIG_SIZE).toString('base64');
+                        var hotKeyStr = hotKeys[ident].slice(NaCl.SIG_SIZE).toString('base64');
                         if (typeof(name.sigs[hotKeyStr]) === 'undefined') {
                             name.sigs[hotKeyStr] = data.validSigsByIdent[ident];
                         }
@@ -280,157 +297,166 @@ module.exports.create = function(keyPair,
         });
     };
 
+    var getNames = function(callback) {
+        NMCClient.nameFilter('^' + zone + '/', function(error, names) {
+            if (error) { callback(error); return; }
+            NMCClient.getBlockCount(function(error, height) {
+                if (error) { callback(error); return; }
+                callback(undefined, names, height);
+            });
+        });
+    };
+
     var syncNames = function(firstRun) {
-      if (firstRun) {
-        for (var i =  0; i < nameList.length; i++) {
+        for (var i =  0; firstRun && i < nameList.length; i++) {
             nameList[i].binEntry = signable(nameList[i]);
         }
-      }
-      NMCClient.nameFilter('^' + zone + '/', function(error, names) {
-        if (error) {
-            console.log("got error scanning for names [" + error + "], trying again in ["
-                + SLEEP_TIME + "] seconds");
-            setTimeout(syncNames, SLEEP_TIME * 1000);
-            return;
-        }
-        console.log("Scanning names:");
+        getNames(function(error, names, height) {
+            if (error) {
+                console.log("got error scanning for names [" + error + "], trying again in ["
+                    + SLEEP_TIME + "] seconds");
+                setTimeout(syncNames, SLEEP_TIME * 1000);
+                return;
+            }
+            console.log("Scanning names:");
 
-        // Reorder the names by our own metric
-        names.sort(sortCompare);
+            // Reorder the names by our own metric
+            names.sort(sortCompare);
 
-        for (var i = names.length - 1; i >= 0; i--) {
-            // To introduce some churn for testing.
-            //if (Math.floor(Math.random() * 5) === 3) { names.splice(i, 1); continue; }
-            try {
-                console.log("trying to verify name " + names[i].name);
-                names[i].value = JSON.parse(names[i].value);
-                names[i].valueStr = JSON.stringify(names[i].value);
-                names[i].auth = new Buffer(names[i].value.auth, 'base64');
+            for (var i = names.length - 1; i >= 0; i--) {
+                // To introduce some churn for testing.
+                //if (Math.floor(Math.random() * 5) === 3) { names.splice(i, 1); continue; }
+                try {
+                    console.log("trying to verify name " + names[i].name);
+                    names[i].value = JSON.parse(names[i].value);
+                    names[i].valueStr = JSON.stringify(names[i].value);
+                    names[i].auth = new Buffer(names[i].value.auth, 'base64');
 
-                if (typeof(names[i].value) === 'undefined') {
+                    if (typeof(names[i].value) === 'undefined') {
 
-                } else if (names[i].value.length > 255) {
+                    } else if (names[i].value.length > 255) {
 
-                } else if (names[i].name.length > 64) {
+                    } else if (names[i].name.length > 64) {
 
-                } else if (i > 0
-                    && cannonicalize(names[i-1].name) === cannonicalize(names[i].name)
-                    && names[i-1].first_seen <= names[i].first_seen)
-                {
+                    } else if (i > 0
+                        && cannonicalize(names[i-1].name) === cannonicalize(names[i].name)
+                        && names[i-1].first_seen <= names[i].first_seen)
+                    {
 
-                } else if (i < names.length-1
-                    && cannonicalize(names[i+1].name) === cannonicalize(names[i].name)
-                    && names[i+1].first_seen < names[i].first_seen)
-                {
+                    } else if (i < names.length-1
+                        && cannonicalize(names[i+1].name) === cannonicalize(names[i].name)
+                        && names[i+1].first_seen < names[i].first_seen)
+                    {
 
-                } else if (!authority.isDomainAuthorized(names[i])) {
+                    } else if (!authority.isDomainAuthorized(names[i])) {
 
-                } else {
-                    continue;
+                    } else {
+                        continue;
+                    }
+                } catch (e) {
+                    console.log('invalid');
+                    //console.log(e.stack)
                 }
-            } catch (e) {
-                console.log(e.stack)
+
+                names.splice(i, 1);
             }
 
-            names.splice(i, 1);
-        }
+            var i = 0;
+            var x = 0;
+            var interval = setInterval(function() {
+              var entry = names[i++];
+              var currentIndex = x;
+              var current = nameList[currentIndex];
 
-        var i = 0;
-        var x = 0;
-        var interval = setInterval(function() {
-          var entry = names[i++];
-          var currentIndex = x;
-          var current = nameList[currentIndex];
+              if (!entry) {
 
-          if (!entry) {
-
-              // Trim the stored list down to size
-              if (names.length < nameList.length) {
-                  for (var ii = nameList.length-1; ii >= names.length; ii--) {
-                      console.log("Trim   [" + nameList[ii].name + '] - [' + nameList[ii].nextName + "] from [" + ii + ']');
-                      nameList.splice(ii, 1);
+                  // Trim the stored list down to size
+                  if (names.length < nameList.length) {
+                      for (var ii = nameList.length-1; ii >= names.length; ii--) {
+                          console.log("Trim   [" + nameList[ii].name + '] - [' + nameList[ii].nextName + "] from [" + ii + ']');
+                          nameList.splice(ii, 1);
+                      }
                   }
-              }
 
-              verifyList(nameList, names);
-              clearInterval(interval);
+                  verifyList(nameList, names);
+                  clearInterval(interval);
 
-              if (firstRun) {
-                  checkName();
-                  checkHotKeys();
-              }
+                  if (firstRun) {
+                      checkName();
+                      checkHotKeys();
+                  }
 
-              console.log("Scanning names complete");
+                  console.log("Scanning names complete");
 
-              if (typeof(dbFileName) !== 'undefined') {
-                  Store.store(dbFileName, nameList, function() {
+                  if (typeof(dbFileName) !== 'undefined') {
+                      Store.store(dbFileName, nameList, function() {
+                          console.log("sleep for [" + SLEEP_TIME + "] seconds")
+                          setTimeout(syncNames, SLEEP_TIME * 1000);
+                      });
+                  } else {
                       console.log("sleep for [" + SLEEP_TIME + "] seconds")
                       setTimeout(syncNames, SLEEP_TIME * 1000);
-                  });
+                  }
+                  return;
+              }
+
+              // Get the next name in the list.
+              var nextName = names[i % names.length].name;
+
+              // the next result from the stored list is *after* the next result from the new list.
+              // this means the entry has been removed.
+              while (typeof(current) !== 'undefined'
+                  && current.name !== entry.name
+                  && compare(current.cannonical.name, cannonicalize(entry.name)) === -1)
+              {
+                  console.log("Remove [" + current.name + '] - [' + current.nextName + "] from [" + currentIndex + ']');
+                  nameList.splice(currentIndex, 1);
+                  current = nameList[currentIndex];
+              }
+
+              // current entry will be set so advance x
+              x++;
+
+              // Reached the end of the list, append.
+              if (typeof(current) === 'undefined') {
+                  console.log("Append [" + entry.name + '] - [' + nextName + "] in [" + currentIndex + ']');
+                  current = nameList[currentIndex] = makeNameEntry(entry, nextName);
+                  signName(current, firstRun, height);
+                  return;
+              }
+
+              if (current.name === entry.name) {
+
+                  if (current.valueStr !== entry.valueStr) {
+                      console.log("Update [" + current.name + '] - [' + nextName + "] to [" + entry.valueStr + "]");
+                      current.value = entry.value;
+                      current.valueStr = entry.valueStr;
+                      current.sigs = {};
+                  }
+
+                  if (current.nextName !== nextName) {
+                      current.nextName = nextName;
+                      current.sigs = {};
+                  }
+
+                  signName(current, firstRun, height);
+                  return;
+              }
+
+              // the new entry comes first, do an insert
+              if (compare(cannonicalize(entry.name), current.cannonical.name) === -1) {
+                  console.log("Insert [" + entry.name + '] - [' + nextName + "] in [" + currentIndex + ']');
+                  nameList.splice(currentIndex, 0, makeNameEntry(entry, nextName));
+                  current = nameList[currentIndex];
+                  ASSERT(current.name === entry.name);
+                  signName(current, firstRun, height);
+                  return;
               } else {
-                  console.log("sleep for [" + SLEEP_TIME + "] seconds")
-                  setTimeout(syncNames, SLEEP_TIME * 1000);
-              }
-              return;
-          }
-
-          // Get the next name in the list.
-          var nextName = names[i % names.length].name;
-
-          // the next result from the stored list is *after* the next result from the new list.
-          // this means the entry has been removed.
-          while (typeof(current) !== 'undefined'
-              && current.name !== entry.name
-              && compare(current.cannonical.name, cannonicalize(entry.name)) === -1)
-          {
-              console.log("Remove [" + current.name + '] - [' + current.nextName + "] from [" + currentIndex + ']');
-              nameList.splice(currentIndex, 1);
-              current = nameList[currentIndex];
-          }
-
-          // current entry will be set so advance x
-          x++;
-
-          // Reached the end of the list, append.
-          if (typeof(current) === 'undefined') {
-              console.log("Append [" + entry.name + '] - [' + nextName + "] in [" + currentIndex + ']');
-              current = nameList[currentIndex] = makeNameEntry(entry, nextName);
-              signName(current, firstRun);
-              return;
-          }
-
-          if (current.name === entry.name) {
-
-              if (current.valueStr !== entry.valueStr) {
-                  console.log("Update [" + current.name + '] - [' + nextName + "] to [" + entry.valueStr + "]");
-                  current.value = entry.value;
-                  current.valueStr = entry.valueStr;
-                  current.sigs = {};
+                  ASSERT(false);
               }
 
-              if (current.nextName !== nextName) {
-                  current.nextName = nextName;
-                  current.sigs = {};
-              }
-
-              signName(current, firstRun);
-              return;
-          }
-
-          // the new entry comes first, do an insert
-          if (compare(cannonicalize(entry.name), current.cannonical.name) === -1) {
-              console.log("Insert [" + entry.name + '] - [' + nextName + "] in [" + currentIndex + ']');
-              nameList.splice(currentIndex, 0, makeNameEntry(entry, nextName));
-              current = nameList[currentIndex];
-              ASSERT(current.name === entry.name);
-              signName(current, firstRun);
-              return;
-          } else {
-              ASSERT(false);
-          }
-
+            });
         });
-      });
     };
 
     if (typeof(dbFileName) !== 'undefined') {

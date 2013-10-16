@@ -132,7 +132,9 @@ var init = module.exports.init = function ()
             if (err) { callback(err); return; }
     //        console.log('got response [' + printHex(msg) + ']');
     //console.log(">>"+Message.size(msg));
-            var names = Serial.readStrList(msg);
+
+            var blockHeight = Message.pop32(msg);
+            var names = Serial.readStrList(msg, 3);
             var sigs = [];
     //console.log(hotKeysArray.length)
     //console.log(Message.size(msg));
@@ -154,7 +156,8 @@ var init = module.exports.init = function ()
             // return the entry and the keys which signed it.
             callback(undefined, {
                 entry: names,
-                validSigsByIdent: validSigs
+                validSigsByIdent: validSigs,
+                blockHeight: blockHeight
             });
         });
     };

@@ -113,3 +113,14 @@ nameFilter('^tor/', function(err, dat) {
     console.log(JSON.stringify(dat, null, '  '));
 });
 */
+
+var getBlockCount = module.exports.getBlockCount = function(callback)
+{
+  rpcCall({ method: "getblockcount", params: [] }, function(dat) {
+      try {
+          var content = JSON.parse(dat);
+      } catch (e) { callback(e.stack, undefined); }
+      if (content.error) { callback(content.error, null); }
+      callback(undefined, content.result);
+  });
+};
