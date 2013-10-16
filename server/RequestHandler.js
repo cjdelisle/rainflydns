@@ -68,14 +68,18 @@ var hotKeys = function(msg, gossiper, callback)
 var lookup = function(msg, gossiper, callback)
 {
     console.log('lookup');
+console.log(Message.size(msg));
     var name = Serial.readStrList(msg, 1);
+console.log(Message.size(msg));
     if (name.length !== 1) { throw new Error(); }
     name = name[0];
     var hotKeys = [];
     while (Message.size(msg) > 0) {
         hotKeys.push(Message.pop(msg, Crypto.PUBLIC_KEY_SIZE));
     }
-
+//02294106
+//05682f636a640000
+//5cc26fc92f5a012deac29e09f7670308ae3a92245bd7b7afa36d0f1c0ca42cb6
     var entry = gossiper.lookup(name);
 
     var hotKey;
@@ -315,7 +319,6 @@ var init = function(address, port, gossiper)
 {
   var sock = UDP.createSocket((address.indexOf(':') > -1) ? 'udp6' : 'udp4');
   var handleMessage = function (buff, rinfo) {
-
     var msg = Message.wrap(buff);
     var typeAndCookie = Message.pop32(msg);
     var callback = function(msg) {

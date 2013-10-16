@@ -75,7 +75,6 @@ var init = module.exports.init = function ()
             callback(undefined, msg);
         };
 
-    //    console.log("sending: " + printHex(msg));
         sock.send(msg.buff, msg.offset, msg.buff.length - msg.offset, target[1], target[0]);
     };
 
@@ -84,14 +83,12 @@ var init = module.exports.init = function ()
         var buff = new Buffer(1024);
         var msg = Message.wrap(buff);
         Message.reset(msg);
-    //    console.log('looking up keys');
 
         for (var i = keys.length - 1; i >= 0; i--) {
             Message.push(msg, keys[i]);
         }
         sendMsg(msg, RequestType.HOT_KEYS, target, function(err, msg) {
             if (err) { callback(err); return; }
-    //        console.log('got response [' + printHex(msg) + ']');
             var bitField = Message.pop32(msg);
             var outKeys = {};
             for (var i = 0; i < keys.length; i++) {
@@ -114,8 +111,6 @@ var init = module.exports.init = function ()
         var buff = new Buffer(1024);
         var msg = Message.wrap(buff);
         Message.reset(msg);
-    //    console.log('looking up [' + name + ']');
-    //console.log(keys.length);
         var hotKeysArray = [];
         var identitiesArray = [];
         for (var ident in hotKeys) {
@@ -130,19 +125,14 @@ var init = module.exports.init = function ()
 
         sendMsg(msg, RequestType.LOOKUP, target, function(err, msg) {
             if (err) { callback(err); return; }
-    //        console.log('got response [' + printHex(msg) + ']');
-    //console.log(">>"+Message.size(msg));
-
             var blockHeight = Message.pop32(msg);
             var names = Serial.readStrList(msg, 3);
             var sigs = [];
-    //console.log(hotKeysArray.length)
-    //console.log(Message.size(msg));
             for (var i = 0; i < hotKeysArray.length && Message.size(msg) > 0; i++) {
                 sigs[i] = Message.pop(msg, Crypto.SIG_SIZE);
             }
             Serial.writeStrList(msg, names);
-    //console.log(printHex(msg));
+            Message.push32(msg, blockHeight);
             var sigContent = Message.pop(msg, Message.size(msg));
             validSigs = {};
             for (var i = 0; i < sigs.length; i++) {
