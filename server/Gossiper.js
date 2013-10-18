@@ -21,7 +21,7 @@ var Message = require('../common/Message');
 var Serial = require('../common/Serial');
 var Messenger = require('../common/Messenger');
 var Store = require('./Store');
-var Store = require('./NameEntry');
+var NameEntry = require('./NameEntry');
 
 var SLEEP_TIME = 60;
 
