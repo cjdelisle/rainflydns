@@ -81,16 +81,17 @@ var lookup = function(msg, gossiper, callback)
     var hotKey;
     while ((hotKey = hotKeys.pop())) {
         var hotKeyStr = new Buffer(hotKey).toString('base64');
-        if (hotKeyStr in entry.sigs) {
+        var sigs = entry.getSigs();
+        if (hotKeyStr in sigs) {
             console.log("pushing key");
-            Message.push(msg, entry.sigs[hotKeyStr]);
+            Message.push(msg, sigs[hotKeyStr]);
         } else {
             console.log("unknown key, pushing zero");
             Message.push(msg, ZERO);
         }
     }
 
-    Message.push(msg, entry.binEntry);
+    Message.push(msg, entry.getBinary());
 
     callback(msg);
 };

@@ -21,28 +21,10 @@ var Message = require('../common/Message');
 var Serial = require('../common/Serial');
 var Messenger = require('../common/Messenger');
 var Store = require('./Store');
+var Store = require('./NameEntry');
 
 var SLEEP_TIME = 60;
 
-var signable = function (entry)
-{
-    var buff = new Buffer(512);
-    var msg = Message.wrap(buff);
-    Message.reset(msg);
-
-    Serial.writeStrList(msg, [
-        entry.cannonical.name,
-        entry.cannonical.nextName,
-        entry.cannonical.value
-    ]);
-    Message.push32(msg, entry.height);
-    return Message.pop(msg, Message.size(msg));
-};
-
-var cannonicalize = function (name)
-{
-    return name.substring(0, name.lastIndexOf('/') + 1);
-};
 
 // 1 if B comes before A
 // -1 if A comes before B
@@ -94,9 +76,8 @@ var doLookup = function (nameList, name)
 {
     var entry = nameList[nameList.length-1];
     for (var i = 0; i < nameList.length; i++) {
-        var comp = compare(nameList[i].cannonical.name, name);
-//console.log("compare(" + nameList[i].cannonical.name + ', ' + name + ') -> ' + comp);
-        switch (compare(nameList[i].cannonical.name, name)) {
+        var comp = compare(nameList[i].getName(), name);
+        switch (compare(nameList[i].getName(), name)) {
             case 1: return entry;
             case 0: return nameList[i];
             default: entry = nameList[i];
@@ -121,16 +102,14 @@ var verifyList = function (nameList, entries)
         var last = (i === 0) ? nameList[nameList.length-1] : nameList[i-1];
         var error;
         var num;
-        if (nameList[i].name !== last.nextName) {
+        if (nameList[i].getFullName() !== last.getNextFullNam()) {
             error = "name != last.nextName";
-        } else if (nameList[i].name !== entries[i].name) {
+        } else if (nameList[i].getFullName() !== entries[i].name) {
             error = "nameList[i].name !== entries[i].name";
-        } else if (nameList[i].valueStr !== entries[i].valueStr) {
-            error = "nameList[i].valueStr !== entries[i].valueStr";
-        } else if (i != 0 && compare(nameList[i-1].cannonical.name, nameList[i].cannonical.name) !== -1) {
+        } else if (i != 0 && compare(nameList[i-1].getName(), nameList[i].getName()) !== -1) {
             error = "compare(nameList[i-1], nameList[i]) !== -1";
-        } else if ((num = doLookup(nameList, nameList[i].cannonical.name)) !== nameList[i]) {
-            error = "lookup("+nameList[i].cannonical.name+") != " + nameList[i];
+        } else if ((num = doLookup(nameList, nameList[i].getName())) !== nameList[i]) {
+            error = "lookup(" + nameList[i].getName() + ") != " + nameList[i];
         } else {
             continue;
         }
@@ -141,39 +120,62 @@ var verifyList = function (nameList, entries)
             console.log(j + '  ' + JSON.stringify(entries[j]));
         }
         for (var j = 0; j < nameList.length; j++) {
-            delete nameList[j].auth;
-            delete nameList[j].sigs;
-            delete nameList[j].binEntry;
-            console.log(j + '  ' + JSON.stringify(nameList[j]));
+            console.log(j + '  ' + JSON.stringify({
+                name: nameList[j].getFullName(),
+                nextName: nameList[j].getNextFullName(),
+                value: nameList[j].getValue(),
+            }));
         }
         throw new Error("Problem with name number [" + i + "] [" + error + "]");
     }
 };
 
-var makeNameEntry = function(namecoinName, nextName)
-{
-    var out = {
-        name: namecoinName.name,
-        value: namecoinName.value,
-        valueStr: namecoinName.valueStr,
-        nextName: nextName,
-        first_seen: namecoinName.first_seen,
-        sigs: {},
-        cannonical: {
-            name: namecoinName.name.replace(/\/[^\/]*$/, ''),
-            nextName: nextName.replace(/\/[^\/]*$/, ''),
+var filterNames = function(names, authority) {
+    for (var i = names.length - 1; i >= 0; i--) {
+        // To introduce some churn for testing.
+        //if (Math.floor(Math.random() * 5) === 3) { names.splice(i, 1); continue; }
+        try {
+            var error = '';
+            names[i].value = JSON.parse(names[i].value);
+            names[i].valueStr = JSON.stringify(names[i].value);
+            names[i].auth = new Buffer(names[i].value.auth, 'base64');
+
+            if (typeof(names[i].value) === 'undefined') {
+                error = 'value indefined';
+
+            } else if (names[i].value.length > 255) {
+                error = 'value too long';
+
+            } else if (names[i].name.length > 64) {
+                error = 'name too long';
+
+            } else if (i > 0
+                && cannonicalize(names[i-1].name) === cannonicalize(names[i].name)
+                && names[i-1].first_seen <= names[i].first_seen)
+            {
+                error = 'dupe of existing name ' + names[i-1].name;
+
+            } else if (i < names.length-1
+                && cannonicalize(names[i+1].name) === cannonicalize(names[i].name)
+                && names[i+1].first_seen < names[i].first_seen)
+            {
+                error = 'dupe of existing name ' + names[i+1].name;
+
+            } else if (!authority.isDomainAuthorized(names[i])) {
+                error = 'unauthorized';
+
+            } else {
+                console.log("name [" + names[i].name + "] is valid");
+                continue;
+            }
+            console.log("name [" + names[i].name + "] is invalid [" + error + "]");
+        } catch (e) {
+            console.log("name [" + names[i].name + "] is invalid [" + e.stack + "]");
         }
-    };
 
-    var sha = Crypto.createHash('sha512');
-    sha.update(out.cannonical.name);
-    out.height = new Number('0x' + sha.digest('hex').substring(0,2));
-
-    out.cannonical.value = JSON.parse(namecoinName.valueStr);
-    delete out.cannonical.value.auth;
-    out.cannonical.value = JSON.stringify(out.cannonical.value);
-    return out;
-};
+        names.splice(i, 1);
+    }
+}
 
 module.exports.create = function(keyPair,
                                  ident,
@@ -208,20 +210,13 @@ module.exports.create = function(keyPair,
 
     var signName = function (entry, firstRun, height)
     {
-        if (entry.height < height - 2016 || (height % 256) === entry.height) {
-            entry.sigs = {};
-            entry.height = ((height >> 8) << 8) | (entry.height & 0xff);
-        }
-        if (entry.sigs[hotID]) {
-            return;
-        }
+        if (entry.getSigs()[hotID]) { return; }
         console.log("Signing [" + entry.name + "] - [" + entry.nextName + "] [" + entry.height + "]");
         // While we're at it we can flush out the old keys.
         for (var id in entry.sigs) {
             if (typeof(hotKeys[id]) === 'undefined') { delete entry.sigs[id]; }
         }
-        entry.binEntry = signable(entry);
-        entry.sigs[hotID] = NaCl.sign(entry.binEntry, keyPair);
+        entry.getSigs()[hotID] = NaCl.sign(entry.getBinary(), keyPair);
     };
 
     var nameList = [];
@@ -248,7 +243,7 @@ module.exports.create = function(keyPair,
                         continue;
                     }
                     for (var i = 0; i < nameList.length; i++) {
-                        if (typeof(nameList[i].sigs[ident]) !== 'undefined') { delete nameList[i].sigs[ident]; }
+                        if (typeof(nameList[i].getSigs()[ident]) !== 'undefined') { delete nameList[i].getSigs()[ident]; }
                     }
                     hotKeys[ident] = keyMap[ident];
                 }
@@ -261,13 +256,12 @@ module.exports.create = function(keyPair,
         setTimeout(checkName, Math.random()*1000);
         if (!servers.length || !nameList.length) { return; }
         var server = servers[Math.floor(Math.random() * servers.length)];
-
         var begin = Math.floor(Math.random() * nameList.length);
         var name;
         var i = begin;
         var best = 0;
         do {
-            var len = Object.keys(nameList[i].sigs).length;
+            var len = Object.keys(nameList[i].getSigs()).length;
             if (len < best) {
                 name = nameList[i];
                 break;
@@ -280,24 +274,25 @@ module.exports.create = function(keyPair,
             name = nameList[begin]
         }
 
-        console.log("checking [" + name.cannonical.name + '] with [' + server + ']');
-        messenger.lookup(name.cannonical.name, hotKeys, server, function(err, data) {
+        console.log("checking [" + name.getName() + '] with [' + server + ']');
+        messenger.lookup(name.getName(), hotKeys, server, function(err, data) {
             if (err) {
-                console.log("checking [" + name.cannonical.name + '] with [' + server + '] error[' + err + "]");
+                console.log("checking [" + name.getName() + '] with [' + server
+                            + '] error[' + err + "]");
                 return;
             }
-            var entry = [name.cannonical.name, name.cannonical.nextName, name.cannonical.value];
+            var entry = [name.getName(), name.getNextName(), name.getValue()];
             if (JSON.stringify(data.entry) !== JSON.stringify(entry)) {
                 console.log(JSON.stringify(data.entry) + ' !== ' + JSON.stringify(entry));
                 return;
             }
-            if (data.blockHeight !== name.height) {
+            if (data.blockHeight !== name.getHeight()) {
                 return;
             }
             for (ident in data.validSigsByIdent) {
                 var hotKeyStr = hotKeys[ident].slice(NaCl.SIG_SIZE).toString('base64');
                 if (typeof(name.sigs[hotKeyStr]) === 'undefined') {
-                    name.sigs[hotKeyStr] = data.validSigsByIdent[ident];
+                    name.getSigs()[hotKeyStr] = data.validSigsByIdent[ident];
                 }
             }
         });
@@ -314,9 +309,6 @@ module.exports.create = function(keyPair,
     };
 
     var syncNames = function(firstRun) {
-        for (var i =  0; firstRun && i < nameList.length; i++) {
-            nameList[i].binEntry = signable(nameList[i]);
-        }
         getNames(function(error, names, height) {
             if (error) {
                 console.log("got error scanning for names [" + error + "], trying again in ["
@@ -329,51 +321,7 @@ module.exports.create = function(keyPair,
             // Reorder the names by our own metric
             names.sort(sortCompare);
 
-            for (var i = names.length - 1; i >= 0; i--) {
-                // To introduce some churn for testing.
-                //if (Math.floor(Math.random() * 5) === 3) { names.splice(i, 1); continue; }
-                try {
-                    var error = '';
-                    names[i].value = JSON.parse(names[i].value);
-                    names[i].valueStr = JSON.stringify(names[i].value);
-                    names[i].auth = new Buffer(names[i].value.auth, 'base64');
-
-                    if (typeof(names[i].value) === 'undefined') {
-                        error = 'value indefined';
-
-                    } else if (names[i].value.length > 255) {
-                        error = 'value too long';
-
-                    } else if (names[i].name.length > 64) {
-                        error = 'name too long';
-
-                    } else if (i > 0
-                        && cannonicalize(names[i-1].name) === cannonicalize(names[i].name)
-                        && names[i-1].first_seen <= names[i].first_seen)
-                    {
-                        error = 'dupe of existing name ' + names[i-1].name;
-
-                    } else if (i < names.length-1
-                        && cannonicalize(names[i+1].name) === cannonicalize(names[i].name)
-                        && names[i+1].first_seen < names[i].first_seen)
-                    {
-                        error = 'dupe of existing name ' + names[i+1].name;
-
-                    } else if (!authority.isDomainAuthorized(names[i])) {
-                        error = 'unauthorized';
-
-                    } else {
-                        console.log("name [" + names[i].name + "] is valid");
-                        continue;
-                    }
-                    console.log("name [" + names[i].name + "] is invalid [" + error + "]");
-                } catch (e) {
-                    //console.log('invalid');
-                    console.log(e.stack)
-                }
-
-                names.splice(i, 1);
-            }
+            filterNames(names, authority);
 
             var i = 0;
             var x = 0;
@@ -387,7 +335,8 @@ module.exports.create = function(keyPair,
                   // Trim the stored list down to size
                   if (names.length < nameList.length) {
                       for (var ii = nameList.length-1; ii >= names.length; ii--) {
-                          console.log("Trim   [" + nameList[ii].name + '] - [' + nameList[ii].nextName + "] from [" + ii + ']');
+                          console.log("Trim   [" + nameList[ii].getName() + '] - ['
+                                      + nameList[ii].getNextName() + "] from [" + ii + ']');
                           nameList.splice(ii, 1);
                       }
                   }
@@ -421,9 +370,9 @@ module.exports.create = function(keyPair,
               // this means the entry has been removed.
               while (typeof(current) !== 'undefined'
                   && current.name !== entry.name
-                  && compare(current.cannonical.name, cannonicalize(entry.name)) === -1)
+                  && compare(current.getName(), cannonicalize(entry.name)) === -1)
               {
-                  console.log("Remove [" + current.name + '] - [' + current.nextName + "] from [" + currentIndex + ']');
+                  console.log("Remove [" + current.getName() + '] - [' + current.nextName + "] from [" + currentIndex + ']');
                   nameList.splice(currentIndex, 1);
                   current = nameList[currentIndex];
               }
@@ -434,23 +383,23 @@ module.exports.create = function(keyPair,
               // Reached the end of the list, append.
               if (typeof(current) === 'undefined') {
                   console.log("Append [" + entry.name + '] - [' + nextName + "] in [" + currentIndex + ']');
-                  current = nameList[currentIndex] = makeNameEntry(entry, nextName);
+                  current = nameList[currentIndex] =
+                      NameEntry.create(entry.name, nextName, entry.value, entry.first_seen, height);
                   signName(current, firstRun, height);
                   return;
               }
 
-              if (current.name === entry.name) {
+              current.setCurrentHeight(height);
+
+              if (current.getName() === cannonicalize(entry.name)) {
 
                   if (current.valueStr !== entry.valueStr) {
                       console.log("Update [" + current.name + '] - [' + nextName + "] to [" + entry.valueStr + "]");
-                      current.value = entry.value;
-                      current.valueStr = entry.valueStr;
-                      current.sigs = {};
+                      current.setValue(entry.value);
                   }
 
-                  if (current.nextName !== nextName) {
-                      current.nextName = nextName;
-                      current.sigs = {};
+                  if (current.getNextFullName() !== nextName) {
+                      current.setNextFullName(nextName);
                   }
 
                   signName(current, firstRun, height);
@@ -458,9 +407,10 @@ module.exports.create = function(keyPair,
               }
 
               // the new entry comes first, do an insert
-              if (compare(cannonicalize(entry.name), current.cannonical.name) === -1) {
+              if (compare(cannonicalize(entry.name), current.getName()) === -1) {
                   console.log("Insert [" + entry.name + '] - [' + nextName + "] in [" + currentIndex + ']');
-                  nameList.splice(currentIndex, 0, makeNameEntry(entry, nextName));
+                  var newEntry = NameEntry.create(entry.name, nextName, entry.value, entry.first_seen, height);
+                  nameList.splice(currentIndex, 0, newEntry);
                   current = nameList[currentIndex];
                   ASSERT(current.name === entry.name);
                   signName(current, firstRun, height);
