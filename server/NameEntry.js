@@ -26,7 +26,7 @@ var signable = function (name, nextName, value, height)
     return Message.pop(msg, Message.size(msg));
 };
 
-var cannonicalize = function (name)
+var cannonical = module.exports.cannonical = function (name)
 {
     return name.substring(0, name.lastIndexOf('/') + 1);
 };
@@ -69,7 +69,7 @@ var create = module.exports.create = function(fullName, nextFullName, value, fir
     };
     out.setFullName = function(fn) {
         value.FullName = fn;
-        value.Name = cannonicalize(fn);
+        value.Name = cannonical(fn);
 
         var sha = Crypto.createHash('sha512');
         sha.update(value.Name);
@@ -85,7 +85,7 @@ var create = module.exports.create = function(fullName, nextFullName, value, fir
     };
     out.setNextFullName = function(nfn) {
         value.NextFullName = nfn;
-        value.NextName = cannonicalize(nfn);
+        value.NextName = cannonical(nfn);
         makeDirty();
     };
     out.setValue = function(v) {

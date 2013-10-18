@@ -150,13 +150,13 @@ var filterNames = function(names, authority) {
                 error = 'name too long';
 
             } else if (i > 0
-                && cannonicalize(names[i-1].name) === cannonicalize(names[i].name)
+                && NameEntry.cannonical(names[i-1].name) === NameEntry.cannonical(names[i].name)
                 && names[i-1].first_seen <= names[i].first_seen)
             {
                 error = 'dupe of existing name ' + names[i-1].name;
 
             } else if (i < names.length-1
-                && cannonicalize(names[i+1].name) === cannonicalize(names[i].name)
+                && NameEntry.cannonical(names[i+1].name) === NameEntry.cannonical(names[i].name)
                 && names[i+1].first_seen < names[i].first_seen)
             {
                 error = 'dupe of existing name ' + names[i+1].name;
@@ -370,7 +370,7 @@ module.exports.create = function(keyPair,
               // this means the entry has been removed.
               while (typeof(current) !== 'undefined'
                   && current.name !== entry.name
-                  && compare(current.getName(), cannonicalize(entry.name)) === -1)
+                  && compare(current.getName(), NameEntry.cannonical(entry.name)) === -1)
               {
                   console.log("Remove [" + current.getName() + '] - [' + current.nextName + "] from [" + currentIndex + ']');
                   nameList.splice(currentIndex, 1);
@@ -391,7 +391,7 @@ module.exports.create = function(keyPair,
 
               current.setCurrentHeight(height);
 
-              if (current.getName() === cannonicalize(entry.name)) {
+              if (current.getName() === NameEntry.cannonical(entry.name)) {
 
                   if (current.valueStr !== entry.valueStr) {
                       console.log("Update [" + current.name + '] - [' + nextName + "] to [" + entry.valueStr + "]");
@@ -407,7 +407,7 @@ module.exports.create = function(keyPair,
               }
 
               // the new entry comes first, do an insert
-              if (compare(cannonicalize(entry.name), current.getName()) === -1) {
+              if (compare(NameEntry.cannonical(entry.name), current.getName()) === -1) {
                   console.log("Insert [" + entry.name + '] - [' + nextName + "] in [" + currentIndex + ']');
                   var newEntry = NameEntry.create(entry.name, nextName, entry.value, entry.first_seen, height);
                   nameList.splice(currentIndex, 0, newEntry);
