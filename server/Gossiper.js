@@ -259,6 +259,7 @@ module.exports.create = function(keyPair,
 
     var checkName = function () {
         setTimeout(checkName, Math.random()*1000);
+        if (!servers.length || !nameList.length) { return; }
         var server = servers[Math.floor(Math.random() * servers.length)];
 
         var begin = Math.floor(Math.random() * nameList.length);
@@ -359,8 +360,8 @@ module.exports.create = function(keyPair,
                         continue;
                     }
                 } catch (e) {
-                    console.log('invalid');
-                    //console.log(e.stack)
+                    //console.log('invalid');
+                    console.log(e.stack)
                 }
 
                 names.splice(i, 1);
