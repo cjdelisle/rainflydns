@@ -37,7 +37,11 @@ var create = module.exports.create = function(fullName, nextFullName, value, fir
     var out = {};
     var value = {
         Sigs:{},
-        Binary:new Buffer(0)
+        Binary:new Buffer(0),
+        Name:'',
+        NextName:'',
+        Value:{},
+        Height:''
     };
 
     [
