@@ -22,7 +22,7 @@ var signable = function (name, nextName, value, height)
     var msg = Message.wrap(buff);
     Message.reset(msg);
 
-    Serial.writeStrList(msg,[name,nextName,value]);
+    Serial.writeStrList(msg,[name,nextName,JSON.stringify(value)]);
     Message.push32(msg, height);
     return Message.pop(msg, Message.size(msg));
 };
