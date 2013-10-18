@@ -13,6 +13,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 var Crypto = require('../common/Crypto');
+var NMCClient = require('../server/NMCClient');
 
 var newAuthority = function ()
 {
@@ -43,6 +44,7 @@ var signDomain = function (name)
             signSk:new Buffer(json.privateKey, 'base64'),
             signPk:new Buffer(json.publicKey, 'base64'),
         };
+        console.log("getting history for name: " + name);
 
         NMCClient.nameHistory(name, function(err, history) {
             if (err) {
@@ -54,15 +56,15 @@ var signDomain = function (name)
                 return;
             }
             var firstSeen = Infinity;
-            for (var i = 0; i < name.length; i++) {
-                if (firstSeen > history[i].first_seen) {
-                    firstSeen = history[i].first_seen;
+            for (var i = 0; i < history.length; i++) {
+                if (firstSeen > history[i].block_height) {
+                    firstSeen = history[i].block_height;
                 }
             }
             console.log(name + " first seen: " + firstSeen + "\n");
 
             var fsb = new Buffer(4);
-            fsb.writeUint32BE(firstSeen);
+            fsb.writeUInt32BE(firstSeen);
             var toVerify = Buffer.concat([fsb, new Buffer(nameEntry.name, 'utf8')]);
             var sig = Crypto.sign(name, keyPair);
             console.log('"auth":"' + new Buffer(sig).toString('base64') + '"');
