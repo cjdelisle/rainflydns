@@ -195,9 +195,6 @@ module.exports.create = function(keyPair,
     hotKeys[nodeID] = Buffer.concat([new Buffer(sig), new Buffer(keyPair.signPk)]);
     hotIDs[nodeID] = hotID;
 
-    console.log("our auth: " + hotKeys[nodeID].toString('base64'));
-    //console.log("our hotk: " + new Buffer(keyPair.signPk).toString('base64'));
-
     var hotKey = function(coldKey)
     {
         return hotKeys[new Buffer(coldKey).toString('base64')];

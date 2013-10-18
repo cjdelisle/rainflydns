@@ -14,6 +14,7 @@
  */
 var Crypto = require('crypto');
 var Message = require('../common/Message');
+var Serial = require('../common/Serial');
 
 var signable = function (name, nextName, value, height)
 {
