@@ -64,7 +64,7 @@ var signDomain = function (name)
             console.log(name + " first seen: " + firstSeen + "\n");
 
             var fsb = new Buffer(4);
-            fsb.writeUInt32BE(firstSeen);
+            fsb.writeUInt32BE(firstSeen, 0);
             var toVerify = Buffer.concat([fsb, new Buffer(nameEntry.name, 'utf8')]);
             var sig = Crypto.sign(name, keyPair);
             console.log('"auth":"' + new Buffer(sig).toString('base64') + '"');
