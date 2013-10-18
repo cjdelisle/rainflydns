@@ -333,32 +333,40 @@ module.exports.create = function(keyPair,
                 // To introduce some churn for testing.
                 //if (Math.floor(Math.random() * 5) === 3) { names.splice(i, 1); continue; }
                 try {
-                    console.log("trying to verify name " + names[i].name);
+                    var error = '';
                     names[i].value = JSON.parse(names[i].value);
                     names[i].valueStr = JSON.stringify(names[i].value);
                     names[i].auth = new Buffer(names[i].value.auth, 'base64');
 
                     if (typeof(names[i].value) === 'undefined') {
+                        error = 'value indefined';
 
                     } else if (names[i].value.length > 255) {
+                        error = 'value too long';
 
                     } else if (names[i].name.length > 64) {
+                        error = 'name too long';
 
                     } else if (i > 0
                         && cannonicalize(names[i-1].name) === cannonicalize(names[i].name)
                         && names[i-1].first_seen <= names[i].first_seen)
                     {
+                        error = 'dupe of existing name ' + names[i-1].name;
 
                     } else if (i < names.length-1
                         && cannonicalize(names[i+1].name) === cannonicalize(names[i].name)
                         && names[i+1].first_seen < names[i].first_seen)
                     {
+                        error = 'dupe of existing name ' + names[i+1].name;
 
                     } else if (!authority.isDomainAuthorized(names[i])) {
+                        error = 'unauthorized';
 
                     } else {
+                        console.log("name [" + names[i].name + "] is valid");
                         continue;
                     }
+                    console.log("name [" + names[i].name + "] is invalid [" + error + "]");
                 } catch (e) {
                     //console.log('invalid');
                     console.log(e.stack)
