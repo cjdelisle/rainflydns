@@ -43,8 +43,30 @@ var signDomain = function (name)
             signSk:new Buffer(json.privateKey, 'base64'),
             signPk:new Buffer(json.publicKey, 'base64'),
         };
-        var sig = Crypto.sign(name, keyPair);
-        console.log('"auth":"' + new Buffer(sig).toString('base64') + '"');
+
+        NMCClient.nameHistory(name, function(err, history) {
+            if (err) {
+                console.log("This might mean your namecoin instance is down or not synced yet.");
+                throw err;
+            }
+            if (history.length < 1) {
+                console.log("name [" + name + "] not registered");
+                return;
+            }
+            var firstSeen = Infinity;
+            for (var i = 0; i < name.length; i++) {
+                if (firstSeen > history[i].first_seen) {
+                    firstSeen = history[i].first_seen;
+                }
+            }
+            console.log(name + " first seen: " + firstSeen + "\n");
+
+            var fsb = new Buffer(4);
+            fsb.writeUint32BE(firstSeen);
+            var toVerify = Buffer.concat([fsb, new Buffer(nameEntry.name, 'utf8')]);
+            var sig = Crypto.sign(name, keyPair);
+            console.log('"auth":"' + new Buffer(sig).toString('base64') + '"');
+        });
     });
 };
 

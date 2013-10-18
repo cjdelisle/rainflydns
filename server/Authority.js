@@ -29,7 +29,10 @@ var isDomainAuthorized = function(keys, nameEntry)
         console.log("Failed to validate domain entry, no authority found");
         return false;
     }
-    return Crypto.isValid(nameEntry.name, nameEntry.auth, keys[candidate]);
+    var fsb = new Buffer(4);
+    fsb.writeUint32BE(nameEntry.first_seen);
+    var toVerify = Buffer.concat([fsb, new Buffer(nameEntry.name, 'utf8')]);
+    return Crypto.isValid(toVerify, nameEntry.auth, keys[candidate]);
 };
 
 var init = module.exports.init = function(authority, callback)
@@ -38,7 +41,7 @@ var init = module.exports.init = function(authority, callback)
     // so for example nic.h must equal h/nic/ and can not contain anything after the last /
     var authorityName = authority.split('.').reverse().join('/') + '/';
     console.log("Looking up history for name authority [" + authorityName + "]");
-    nameHistory = NMCClient.nameHistory(authorityName, function(err, history) {
+    NMCClient.nameHistory(authorityName, function(err, history) {
         if (err) {
             console.log("This might mean your namecoin instance is not synced yet.");
             throw err;
