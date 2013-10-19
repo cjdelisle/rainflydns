@@ -114,7 +114,6 @@ var verifyList = function (nameList, entries)
             continue;
         }
         for (var j = 0; j < entries.length; j++) {
-            delete entries[j].auth;
             delete entries[j].sigs;
             delete entries[j].binEntry;
             console.log(j + '  ' + JSON.stringify(entries[j]));
@@ -136,12 +135,11 @@ var filterNames = function(names, authority) {
         //if (Math.floor(Math.random() * 5) === 3) { names.splice(i, 1); continue; }
         try {
             var error = '';
-            names[i].value = JSON.parse(names[i].value);
-            names[i].valueStr = JSON.stringify(names[i].value);
-            names[i].auth = new Buffer(names[i].value.auth, 'base64');
-
-            if (typeof(names[i].value) === 'undefined') {
-                error = 'value indefined';
+            try {
+                names[i].value = JSON.parse(names[i].value);
+            } catch (e) { }
+            if (typeof(names[i].value) !== 'object') {
+                error = 'value is not an object';
 
             } else if (names[i].value.length > 255) {
                 error = 'value too long';
@@ -391,9 +389,9 @@ module.exports.create = function(keyPair,
 
               if (current.getName() === NameEntry.cannonical(entry.name)) {
 
-                  if (JSON.stringify(current.getValue()) !== entry.valueStr) {
-                      console.log("Update [" + current.getName() + '] - [' + nextName + "] to [" + entry.valueStr + "]");
-                      current.setValue(entry.value);
+                  if (current.setValue(entry.value)) {
+                      console.log("Update [" + current.getName() + '] - [' + nextName + "] to ["
+                                  + current.getValue() + "]");
                   }
 
                   if (current.getNextFullName() !== nextName) {
@@ -406,8 +404,10 @@ module.exports.create = function(keyPair,
 
               // the new entry comes first, do an insert
               if (compare(NameEntry.cannonical(entry.name), current.getName()) === -1) {
-                  console.log("Insert [" + entry.name + '] - [' + nextName + "] in [" + currentIndex + ']');
-                  var newEntry = NameEntry.create(entry.name, nextName, entry.value, entry.first_seen, height);
+                  console.log("Insert [" + entry.name + '] - [' + nextName + "] in ["
+                              + currentIndex + ']');
+                  var newEntry =
+                      NameEntry.create(entry.name, nextName, entry.value, entry.first_seen, height);
                   nameList.splice(currentIndex, 0, newEntry);
                   current = nameList[currentIndex];
                   ASSERT(current.getFullName() === entry.name);

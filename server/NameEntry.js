@@ -67,36 +67,50 @@ var create = module.exports.create = function(fullName, nextFullName, value, fir
     };
 
     out.setFirstSeen = function(fs) {
-        if (data.FirstSeen === fs) { return; }
+        if (data.FirstSeen === fs) { return false; }
         data.FirstSeen = fs;
         makeDirty();
+        return true;
     };
+
     out.setFullName = function(fn) {
+        if (data.FullName === fn) { return false; }
         data.FullName = fn;
         data.Name = cannonical(fn);
-
         var sha = Crypto.createHash('sha512');
         sha.update(data.Name);
         data.Height = (out.height || 0) & 0xffffff00;
         data.Height |= new Number('0x' + sha.digest('hex').substring(0,2));
         makeDirty();
+        return true;
     };
+
     out.setHeight = function(height) {
-        if ((data.Height ^ height) & 0xffffff00) {
-            data.Height = (height & 0xffffff00) | (data.Height & 0xff);
-            makeDirty();
-        }
+        if (!((data.Height ^ height) & 0xffffff00)) { return false; }
+        data.Height = (height & 0xffffff00) | (data.Height & 0xff);
+        makeDirty();
+        return true;
     };
+
     out.setNextFullName = function(nfn) {
+        if (data.NextFullName === nfn) { return false; }
         data.NextFullName = nfn;
         data.NextName = cannonical(nfn);
         makeDirty();
+        return true;
     };
+
     out.setValue = function(v) {
-        out.Auth = v.auth;
-        data.Value = JSON.parse(JSON.stringify(v));
-        delete data.Value.auth;
+        var val = JSON.parse(JSON.stringify(v));
+        var auth = val.auth;
+        delete val.auth;
+        if (out.Auth === auth && JSON.stringify(val) === JSON.stringify(data.Value)) {
+            return false;
+        }
+        out.Auth = auth;
+        data.Value = val;
         makeDirty();
+        return true;
     };
 
     out.setFullName(fullName);
