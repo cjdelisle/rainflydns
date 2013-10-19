@@ -49,7 +49,7 @@ var create = module.exports.create = function(fullName, nextFullName, value, fir
         'FullName',
         'NextFullName',
         'Auth',
-        'CurrentHeight',
+        'Height',
         'FirstSeen',
         'Value',
         'Sigs',
@@ -77,11 +77,11 @@ var create = module.exports.create = function(fullName, nextFullName, value, fir
 
         var sha = Crypto.createHash('sha512');
         sha.update(data.Name);
-        data.CurrentHeight = (out.height || 0) & 0xffffff00;
-        data.CurrentHeight |= new Number('0x' + sha.digest('hex').substring(0,2));
+        data.Height = (out.height || 0) & 0xffffff00;
+        data.Height |= new Number('0x' + sha.digest('hex').substring(0,2));
         makeDirty();
     };
-    out.setCurrentHeight = function(height) {
+    out.setHeight = function(height) {
         if ((data.Height ^ height) & 0xffffff00) {
             data.Height = (height & 0xffffff00) | (data.Height & 0xff);
             makeDirty();
@@ -103,6 +103,6 @@ var create = module.exports.create = function(fullName, nextFullName, value, fir
     out.setNextFullName(nextFullName);
     out.setValue(value);
     out.setFirstSeen(firstSeen);
-    out.setCurrentHeight(height);
+    out.setHeight(height);
     return out;
 };

@@ -387,7 +387,7 @@ module.exports.create = function(keyPair,
                   return;
               }
 
-              current.setCurrentHeight(height);
+              current.setHeight(height);
 
               if (current.getName() === NameEntry.cannonical(entry.name)) {
 
