@@ -90,7 +90,7 @@ var lookup = function(msg, gossiper, callback)
             Message.push(msg, ZERO);
         }
     }
-
+console.log(">>"+entry.getBinary());
     Message.push(msg, entry.getBinary());
 
     callback(msg);
