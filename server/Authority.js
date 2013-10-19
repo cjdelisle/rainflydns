@@ -32,7 +32,7 @@ var isDomainAuthorized = function(keys, nameEntry)
     var fsb = new Buffer(4);
     fsb.writeUInt32BE(nameEntry.first_seen,0);
     var toVerify = Buffer.concat([fsb, new Buffer(nameEntry.name, 'utf8')]);
-    return Crypto.isValid(toVerify, nameEntry.auth, keys[candidate]);
+    return Crypto.isValid(toVerify, nameEntry.value.auth, keys[candidate]);
 };
 
 var init = module.exports.init = function(authority, callback)
