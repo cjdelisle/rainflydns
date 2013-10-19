@@ -28,7 +28,7 @@ var signable = function (name, nextName, value, height)
 
 var cannonical = module.exports.cannonical = function (name)
 {
-    return name.substring(0, name.lastIndexOf('/') + 1);
+    return name.substring(0, name.lastIndexOf('/'));
 };
 
 var create = module.exports.create = function(fullName, nextFullName, value, firstSeen, height)
