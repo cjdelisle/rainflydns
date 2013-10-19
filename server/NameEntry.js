@@ -66,7 +66,7 @@ var create = module.exports.create = function(fullName, nextFullName, value, fir
 console.log("new binary: " + JSON.stringify(list));
         Serial.writeStrList(msg,list);
         Message.push32(msg, data.Height);
-        var bin = Message.pop(msg, Message.size(msg));
+        var bin = new Buffer(Message.pop(msg, Message.size(msg)));
         if (bin.toString('base64') !== data.Binary.toString('base64')) {
             data.Binary = bin;
             data.Sigs = {};
