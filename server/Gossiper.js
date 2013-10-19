@@ -279,7 +279,7 @@ module.exports.create = function(keyPair,
                             + '] error[' + err + "]");
                 return;
             }
-            var entry = [name.getName(), name.getNextName(), name.getValue()];
+            var entry = [name.getName(), name.getNextName(), JSON.stringify(name.getValue())];
             if (JSON.stringify(data.entry) !== JSON.stringify(entry)) {
                 console.log(JSON.stringify(data.entry) + ' !== ' + JSON.stringify(entry));
                 return;
