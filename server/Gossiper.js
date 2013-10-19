@@ -285,10 +285,11 @@ module.exports.create = function(keyPair,
             if (data.blockHeight !== name.getHeight()) {
                 return;
             }
+            var sigs = name.getSigs();
             for (ident in data.validSigsByIdent) {
                 var hotKeyStr = hotKeys[ident].slice(NaCl.SIG_SIZE).toString('base64');
-                if (typeof(name.sigs[hotKeyStr]) === 'undefined') {
-                    name.getSigs()[hotKeyStr] = data.validSigsByIdent[ident];
+                if (typeof(sigs[hotKeyStr]) === 'undefined') {
+                    sigs[hotKeyStr] = data.validSigsByIdent[ident];
                 }
             }
         });
