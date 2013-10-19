@@ -102,7 +102,7 @@ var verifyList = function (nameList, entries)
         var last = (i === 0) ? nameList[nameList.length-1] : nameList[i-1];
         var error;
         var num;
-        if (nameList[i].getFullName() !== last.getNextFullNam()) {
+        if (nameList[i].getFullName() !== last.getNextFullName()) {
             error = "name != last.nextName";
         } else if (nameList[i].getFullName() !== entries[i].name) {
             error = "nameList[i].name !== entries[i].name";
@@ -207,13 +207,14 @@ module.exports.create = function(keyPair,
 
     var signName = function (entry, firstRun, height)
     {
-        if (entry.getSigs()[hotID]) { return; }
-        console.log("Signing [" + entry.name + "] - [" + entry.nextName + "] [" + entry.height + "]");
+        var sigs = entry.getSigs();
+        if (sigs[hotID]) { return; }
+        console.log("Signing [" + entry.getName() + "] - [" + entry.getNextName() + "] [" + entry.getHeight() + "]");
         // While we're at it we can flush out the old keys.
-        for (var id in entry.sigs) {
-            if (typeof(hotKeys[id]) === 'undefined') { delete entry.sigs[id]; }
+        for (var id in sigs) {
+            if (typeof(hotKeys[id]) === 'undefined') { delete sigs[id]; }
         }
-        entry.getSigs()[hotID] = NaCl.sign(entry.getBinary(), keyPair);
+        sigs[hotID] = NaCl.sign(entry.getBinary(), keyPair);
     };
 
     var nameList = [];
