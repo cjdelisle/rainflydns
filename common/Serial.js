@@ -20,7 +20,7 @@ var writeStrList = module.exports.writeStrList = function(msg, stringList)
     var totalLength = 0;
     for (var i = 0; i < stringList.length; i++) {
         bytesList[i] = new Buffer(stringList[i], 'utf8');
-        if (bytesList[i].length > 255) { throw new Error("[" + stringList + "] too big"); }
+        if (bytesList[i].length > 255) { throw new Error("[" + stringList[i] + "] too big"); }
         totalLength += bytesList[i].length + 1;
     }
     for (var i = totalLength; i % 8; i++) {

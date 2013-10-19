@@ -34,7 +34,7 @@ var cannonical = module.exports.cannonical = function (name)
 var create = module.exports.create = function(fullName, nextFullName, value, firstSeen, height)
 {
     var out = {};
-    var value = {
+    var data = {
         Sigs:{},
         Binary:new Buffer(0),
         Name:'',
@@ -55,47 +55,47 @@ var create = module.exports.create = function(fullName, nextFullName, value, fir
         'Sigs',
         'Binary'
     ].forEach(function(name) {
-        out['get'+name] = function() { return value[name]; };
+        out['get'+name] = function() { return data[name]; };
     });
 
     var makeDirty = function() {
-        var bin = signable(value.Name, value.NextName, JSON.stringify(value.Value), value.Height);
-        if (bin.toString('base64') !== value.Binary.toString('base64')) {
-            value.Binary = bin;
-            value.Sigs = {};
+        var bin = signable(data.Name, data.NextName, JSON.stringify(data.Value), data.Height);
+        if (bin.toString('base64') !== data.Binary.toString('base64')) {
+            data.Binary = bin;
+            data.Sigs = {};
         }
     };
 
     out.setFirstSeen = function(fs) {
-        if (value.FirstSeen === fs) { return; }
-        value.FirstSeen = fs;
+        if (data.FirstSeen === fs) { return; }
+        data.FirstSeen = fs;
         makeDirty();
     };
     out.setFullName = function(fn) {
-        value.FullName = fn;
-        value.Name = cannonical(fn);
+        data.FullName = fn;
+        data.Name = cannonical(fn);
 
         var sha = Crypto.createHash('sha512');
-        sha.update(value.Name);
-        value.CurrentHeight = (out.height || 0) & 0xffffff00;
-        value.CurrentHeight |= new Number('0x' + sha.digest('hex').substring(0,2));
+        sha.update(data.Name);
+        data.CurrentHeight = (out.height || 0) & 0xffffff00;
+        data.CurrentHeight |= new Number('0x' + sha.digest('hex').substring(0,2));
         makeDirty();
     };
     out.setCurrentHeight = function(height) {
-        if ((value.Height ^ height) & 0xffffff00) {
-            value.Height = (height & 0xffffff00) | (value.Height & 0xff);
+        if ((data.Height ^ height) & 0xffffff00) {
+            data.Height = (height & 0xffffff00) | (data.Height & 0xff);
             makeDirty();
         }
     };
     out.setNextFullName = function(nfn) {
-        value.NextFullName = nfn;
-        value.NextName = cannonical(nfn);
+        data.NextFullName = nfn;
+        data.NextName = cannonical(nfn);
         makeDirty();
     };
     out.setValue = function(v) {
         out.Auth = v.auth;
-        value.Value = JSON.parse(JSON.stringify(v));
-        delete value.Value.auth;
+        data.Value = JSON.parse(JSON.stringify(v));
+        delete data.Value.auth;
         makeDirty();
     };
 
