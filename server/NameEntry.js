@@ -21,7 +21,6 @@ var signable = function (name, nextName, value, height)
     var buff = new Buffer(512);
     var msg = Message.wrap(buff);
     Message.reset(msg);
-console.log(name + '  ' + nextName + '  ' + value);
     Serial.writeStrList(msg,[name,nextName,value]);
     Message.push32(msg, height);
     return Message.pop(msg, Message.size(msg));
