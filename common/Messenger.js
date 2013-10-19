@@ -133,6 +133,7 @@ var init = module.exports.init = function ()
 
         sendMsg(msg, RequestType.LOOKUP, target, function(err, msg) {
             if (err) { callback(err); return; }
+console.log(">>"+printHex(msg));
             var blockHeight = Message.pop32(msg);
             var names = Serial.readStrList(msg, 3);
             var sigs = [];
