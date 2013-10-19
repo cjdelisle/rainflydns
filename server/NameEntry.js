@@ -59,7 +59,14 @@ var create = module.exports.create = function(fullName, nextFullName, value, fir
     });
 
     var makeDirty = function() {
-        var bin = signable(data.Name, data.NextName, JSON.stringify(data.Value), data.Height);
+        var buff = new Buffer(512);
+        var msg = Message.wrap(buff);
+        Message.reset(msg);
+        var list = [data.Name,data.NextName,JSON.stringify(data.Value)];
+console.log("new binary: " + JSON.stringifY(list));
+        Serial.writeStrList(msg,list);
+        Message.push32(msg, data.Height);
+        var bin = Message.pop(msg, Message.size(msg));
         if (bin.toString('base64') !== data.Binary.toString('base64')) {
             data.Binary = bin;
             data.Sigs = {};
