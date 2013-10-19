@@ -367,7 +367,7 @@ module.exports.create = function(keyPair,
               // the next result from the stored list is *after* the next result from the new list.
               // this means the entry has been removed.
               while (typeof(current) !== 'undefined'
-                  && current.name !== entry.name
+                  && current.getFullName() !== entry.name
                   && compare(current.getName(), NameEntry.cannonical(entry.name)) === -1)
               {
                   console.log("Remove [" + current.getName() + '] - [' + current.nextName + "] from [" + currentIndex + ']');
@@ -391,8 +391,8 @@ module.exports.create = function(keyPair,
 
               if (current.getName() === NameEntry.cannonical(entry.name)) {
 
-                  if (current.valueStr !== entry.valueStr) {
-                      console.log("Update [" + current.name + '] - [' + nextName + "] to [" + entry.valueStr + "]");
+                  if (JSON.stringify(current.getValue()) !== entry.valueStr) {
+                      console.log("Update [" + current.getName() + '] - [' + nextName + "] to [" + entry.valueStr + "]");
                       current.setValue(entry.value);
                   }
 
@@ -410,7 +410,7 @@ module.exports.create = function(keyPair,
                   var newEntry = NameEntry.create(entry.name, nextName, entry.value, entry.first_seen, height);
                   nameList.splice(currentIndex, 0, newEntry);
                   current = nameList[currentIndex];
-                  ASSERT(current.name === entry.name);
+                  ASSERT(current.getFullName() === entry.name);
                   signName(current, firstRun, height);
                   return;
               } else {
