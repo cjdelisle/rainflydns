@@ -90,7 +90,6 @@ var lookup = function(msg, gossiper, callback)
             Message.push(msg, ZERO);
         }
     }
-console.log(">>"+new Buffer(entry.getBinary()).toString('hex'));
     Message.push(msg, entry.getBinary());
 
     callback(msg);

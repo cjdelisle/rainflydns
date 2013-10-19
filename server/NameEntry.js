@@ -63,7 +63,6 @@ var create = module.exports.create = function(fullName, nextFullName, value, fir
         var msg = Message.wrap(buff);
         Message.reset(msg);
         var list = [data.Name,data.NextName,JSON.stringify(data.Value)];
-console.log("new binary: " + JSON.stringify(list));
         Serial.writeStrList(msg,list);
         Message.push32(msg, data.Height);
         var bin = new Buffer(Message.pop(msg, Message.size(msg)));
