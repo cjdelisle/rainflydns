@@ -70,7 +70,8 @@ Namecoin demonstrates that entirely uncontrollable DNS is not always desirable. 
 but they cannot use namecoin for that - people have to communicate directly.
 Not sure how exactly, awaiting more info from cjd.*
 
-RainflyDNS also supports having one (or potentially several) gatekeepers in addition to the ring of core servers. If the core servers honor the gatekeeper's decisions, he can veto registering any new domain, but his decisions are not retroactive, i.e. the gatekeeper's signature cannot be revoked. Note that this is an organizational measure rather than technical; it is optional and can be trivially altered or disabled by core server admins at any time.
+RainflyDNS also supports having one (or potentially several) gatekeepers in addition to the ring of core servers. If the core servers honor the gatekeeper's decisions, he can veto registering any new domain(s). This allows to quickly mitigate e.g. attempts at cybersquatting via 51% attack on the underlying Namecoin blockchain.
+Note that this is an organizational measure rather than technical; it is optional and can be trivially disabled or altered by admins of core server at any time.
 
 ### Subdomains
 
