@@ -47,7 +47,7 @@ Clients should not accept entries that were signed a long time ago. This would r
 [2] If the consensus is "whatever 51% of servers consider to be correct and the rest have to agree with", as seen in bitcoin/namecoin/etc. Otherwise you need to hack X servers at once where X is defined by the client and should be in the vicinity of 80% of core servers.
 
 [3] The current implementation uses the number of namecoin block the domain appears in instead of a literal timestamp. Clients should determine what the "current" namecoin block is by asking all regular servers in their list for the latest block number *(not yet implemented).* 
-Servers should return a recently signed domain as a reply *(not yet implemented).* The clients verify the signatures and pick the highest valid block number given.
+Servers should return a recently signed domain as a reply *(not yet implemented).* The clients verify the signatures and pick the highest valid block number that's signed by a configurable X core servers (see above).
 This allows for accurate "epoch" lookup even if all but one servers in the client's list are malicious or compromised *(also not yet implemented).*
 
 ### Mitigating private key leak
