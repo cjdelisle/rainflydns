@@ -14,7 +14,8 @@ There are three types of entities in RainflyDNS:
 
 1) Core servers
 2) Regular servers, like your average DNS server on clearnet
-3) Clients
+3) Subdomain servers, optionally hosted by top-level domain owners
+4) Clients
 
 A domain is registered when the core servers achieve consensus about it, i.e. all core servers agree on what the IP address for a given domain is.
 How exactly the consensus is achieved is irrelevant to RainflyDNS. Every core server then signs the domain/address pair[1] with its private key.
@@ -75,7 +76,11 @@ Note that this is an organizational measure rather than technical; it is optiona
 
 ### Subdomains
 
-Subdomains are not yet implemented.
+Since the regular domain record points to a cjdns address, the registrar is assumed to have at least one server on a cjdns network. Should subdomains be required, they can make their machine serve them and record the machine's public key in the top level domain record in addition to the top-level machine address. When encountering a subdomain the client would convert the public key to a cjdns address and ask the machine responsible for subdomains under this top-level domain for the cjdns address of the subdomain it's interested in.
+
+Both the subdomain server and the content servers for those subdomains should be controlled by the same party, so they have no incentive to lie about themselves. Redundancy of subdomain servers can be achieved by hosting several machines with the same cjdns public key. Subdomain resolution traffic should be negligible compared to the content traffic to those subdomains, so it should not create significantly higher server load.
+
+*Subdomains are not yet implemented.*
 
 ## Running the server
 
